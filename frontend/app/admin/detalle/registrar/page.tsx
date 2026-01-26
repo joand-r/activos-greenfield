@@ -126,7 +126,7 @@ const RegistrarMovimientoPage = () => {
 
                 <div className="mb-6 rounded-lg bg-blue-50 dark:bg-blue-900/20 p-4">
                   <p className="text-sm text-blue-800 dark:text-blue-300">
-                    <strong>📝 Nota:</strong> Al transferir, el artículo original quedará marcado como "Transferido" 
+                    <strong>📝 Nota:</strong> Al transferir, el artículo original quedará marcado como &quot;Transferido&quot; 
                     y se creará uno nuevo con el código correspondiente al lugar destino.
                   </p>
                 </div>
