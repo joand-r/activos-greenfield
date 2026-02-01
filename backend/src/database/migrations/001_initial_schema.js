@@ -191,64 +191,9 @@ export async function up(client) {
       INSERT INTO usuario (email, password, nombre, rol)
       VALUES ('admin@greenfield.com', $1, 'Administrador', 'admin')
     `, [hashedPassword]);
-    console.log('✅ Usuario admin creado');
+    console.log('✅ Usuario admin creado (email: admin@greenfield.com, password: admin123)');
   }
-
-  // Categorías
-  const categorias = [
-    ['Mobiliario', 'Muebles y mobiliario de oficina'],
-    ['Electrónica', 'Equipos electrónicos y computadoras'],
-    ['Herramientas', 'Herramientas y equipos de trabajo'],
-    ['Vehículos', 'Vehículos y equipos de transporte'],
-    ['Otros', 'Otros activos'],
-  ];
-  for (const [nombre, descripcion] of categorias) {
-    await client.query(`
-      INSERT INTO categoria (nombre, descripcion)
-      VALUES ($1, $2)
-      ON CONFLICT (nombre) DO NOTHING
-    `, [nombre, descripcion]);
-  }
-  console.log('✅ Categorías insertadas');
-
-  // Lugares
-  const lugares = [
-    ['Oficina Principal', 'OFP', 'oficina'],
-    ['Almacén Central', 'ALM', 'almacen'],
-    ['Vivienda 1', 'V01', 'vivienda'],
-  ];
-  for (const [nombre, iniciales, tipo] of lugares) {
-    await client.query(`
-      INSERT INTO lugar (nombre, iniciales, tipo)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (nombre) DO NOTHING
-    `, [nombre, iniciales, tipo]);
-  }
-  console.log('✅ Lugares insertados');
-
-  // Marcas
-  const marcas = [
-    ['HP', 'Hewlett-Packard'],
-    ['Dell', 'Dell Technologies'],
-    ['Samsung', 'Samsung Electronics'],
-    ['Sin Marca', 'Productos sin marca específica'],
-  ];
-  for (const [nombre, descripcion] of marcas) {
-    await client.query(`
-      INSERT INTO marca (nombre, descripcion)
-      VALUES ($1, $2)
-      ON CONFLICT (nombre) DO NOTHING
-    `, [nombre, descripcion]);
-  }
-  console.log('✅ Marcas insertadas');
-
-  // Proveedores
-  await client.query(`
-    INSERT INTO proveedor (nombre, nit, telefono, email, direccion)
-    VALUES ('Proveedor General', '0000000000', '0000000', 'general@example.com', 'Sin dirección')
-    ON CONFLICT (nombre) DO NOTHING
-  `);
-  console.log('✅ Proveedores insertados\n');
+  console.log('');
 }
 
 export async function down(client) {
