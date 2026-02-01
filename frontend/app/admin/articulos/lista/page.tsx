@@ -57,6 +57,7 @@ const ListaArticulosPage = () => {
   useEffect(() => {
     document.title = "Lista de Artículos | Activos Greenfield";
     cargarDatos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vistaActivos]);
 
   const cargarDatos = async () => {

@@ -2,6 +2,7 @@
 
 import ScrollUp from "@/components/Common/ScrollUp";
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useEffect } from "react";
 import { articuloService, Articulo } from "@/services/articulo.service";
 import { lugarService } from "@/services/lugar.service";
@@ -213,12 +214,13 @@ export default function Home() {
                               className="group flex cursor-pointer items-start gap-4 rounded-xl border border-gray-100 bg-gray-50 p-4 transition hover:border-primary hover:bg-primary/5 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-primary dark:hover:bg-primary/10"
                             >
                               {/* Imagen */}
-                              <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700">
+                              <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700 relative">
                                 {articulo.imagen ? (
-                                  <img
+                                  <Image
                                     src={articulo.imagen}
                                     alt={articulo.nombre}
-                                    className="h-full w-full object-cover"
+                                    fill
+                                    className="object-cover"
                                   />
                                 ) : (
                                   <div className="flex h-full items-center justify-center">
@@ -275,7 +277,7 @@ export default function Home() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                       </svg>
                       <p className="text-base text-body-color">
-                        No se encontraron activos con "<strong>{searchTerm}</strong>"
+                        No se encontraron activos con &quot;<strong>{searchTerm}</strong>&quot;
                       </p>
                     </div>
                   )}
@@ -370,10 +372,11 @@ export default function Home() {
                             {/* Imagen */}
                             <div className="relative h-32 bg-gray-100 dark:bg-gray-800 overflow-hidden">
                               {articulo.imagen ? (
-                                <img
+                                <Image
                                   src={articulo.imagen}
                                   alt={articulo.nombre}
-                                  className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                  fill
+                                  className="object-cover group-hover:scale-110 transition-transform duration-300"
                                 />
                               ) : (
                                 <div className="flex h-full items-center justify-center">
