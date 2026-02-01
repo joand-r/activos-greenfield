@@ -8,8 +8,7 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "migrate": "node src/database/migrate.js",
-    "seed": "node src/database/seed.js",
-    "db:reset": "node src/database/migrate.js && node src/database/seed.js",
+    "migration:create": "node src/database/create-migration.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
