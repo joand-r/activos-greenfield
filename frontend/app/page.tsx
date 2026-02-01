@@ -282,19 +282,6 @@ export default function Home() {
                     </div>
                   )}
                 </div>
-
-                {/* Accesos rápidos */}
-                <div className="mt-12 flex flex-wrap items-center justify-center gap-4">
-                  <Link
-                    href="/articulos"
-                    className="group inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-white transition hover:bg-primary/90"
-                  >
-                    <span>Ver Todos los Activos</span>
-                    <svg className="h-4 w-4 transition group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
-                    </svg>
-                  </Link>
-                </div>
               </div>
             </div>
           </div>
