@@ -1,11 +1,6 @@
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
 [build]
   command = "npm run build"
   publish = ".next"
 
-[build.environment]
-  NEXT_PUBLIC_API_URL = "https://activos-greenfield-production.up.railway.app/api"
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
