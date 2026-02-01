@@ -184,7 +184,8 @@ export async function up(client) {
   // Usuario admin
   const adminCheck = await client.query(`SELECT id FROM usuario WHERE email = 'admin@greenfield.com'`);
   if (adminCheck.rows.length === 0) {
-    const bcrypt = await import('bcryptjs');
+    const bcryptModule = await import('bcryptjs');
+    const bcrypt = bcryptModule.default || bcryptModule;
     const hashedPassword = await bcrypt.hash('admin123', 10);
     await client.query(`
       INSERT INTO usuario (email, password, nombre, rol)
