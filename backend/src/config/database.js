@@ -6,12 +6,18 @@ dotenv.config();
 const { Pool } = pg;
 
 // Configuración de la conexión a PostgreSQL
+// Railway proporciona DATABASE_URL automáticamente al agregar PostgreSQL
 const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME || 'activos_greenfield',
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? {
+    rejectUnauthorized: false
+  } : false,
+  // Configuración alternativa para desarrollo local
+  host: process.env.DATABASE_URL ? undefined : (process.env.DB_HOST || 'localhost'),
+  port: process.env.DATABASE_URL ? undefined : (process.env.DB_PORT || 5432),
+  user: process.env.DATABASE_URL ? undefined : (process.env.DB_USER || 'postgres'),
+  password: process.env.DATABASE_URL ? undefined : process.env.DB_PASSWORD,
+  database: process.env.DATABASE_URL ? undefined : (process.env.DB_NAME || 'activos_greenfield'),
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
