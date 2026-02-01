@@ -101,7 +101,7 @@ const Header = () => {
                 } `}
               >
                 <Image
-                  src="/images/logo/greenfield-blanco.png"
+                  src="/images/logo/greenfield-negro.png"
                   alt="Activos Greenfield"
                   width={70}
                   height={70}

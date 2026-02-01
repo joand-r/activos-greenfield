@@ -9,6 +9,7 @@ const SigninPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const { login, isAuthenticated } = useAuth();
   const router = useRouter();
 
@@ -37,115 +38,100 @@ const SigninPage = () => {
         <div className="container">
           <div className="-mx-4 flex flex-wrap">
             <div className="w-full px-4">
-              <div className="shadow-three mx-auto max-w-[500px] rounded bg-white px-6 py-10 dark:bg-dark sm:p-[60px]">
+              <div className="shadow-three mx-auto max-w-[500px] rounded-lg bg-white px-6 py-10 dark:bg-dark sm:p-[60px]">
+                {/* Logo/Icon */}
+                <div className="mb-8 flex justify-center">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+                    <svg className="h-10 w-10 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                </div>
+
                 <h3 className="mb-3 text-center text-2xl font-bold text-black dark:text-white sm:text-3xl">
-                  Iniciar Sesión
+                  Bienvenido
                 </h3>
                 <p className="mb-11 text-center text-base font-medium text-body-color">
-                  Ingresa a tu cuenta para gestionar los activos
+                  Ingresa tus credenciales para continuar
                 </p>
                 
                 {error && (
-                  <div className="mb-6 rounded-sm bg-red-100 dark:bg-red-900/30 px-4 py-3">
-                    <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
+                  <div className="mb-6 rounded-lg bg-red-50 dark:bg-red-900/20 px-4 py-3 border border-red-200 dark:border-red-800">
+                    <div className="flex items-center gap-2">
+                      <svg className="h-5 w-5 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
+                    </div>
                   </div>
                 )}
                 
-                <div className="mb-6 rounded-sm bg-blue-100 dark:bg-blue-900/30 px-4 py-3">
-                  <p className="text-sm text-blue-800 dark:text-blue-400 font-medium">
-                    Usuario por defecto:
-                  </p>
-                  <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                    Email: ddanrc2@greenfield.com
-                  </p>
-                  <p className="text-xs text-blue-700 dark:text-blue-300">
-                    Contraseña: 3214349
-                  </p>
-                </div>
-                
                 <form onSubmit={handleSubmit}>
-                  <div className="mb-8">
+                  <div className="mb-6">
                     <label
                       htmlFor="email"
-                      className="mb-3 block text-sm text-dark dark:text-white"
+                      className="mb-3 block text-sm font-medium text-dark dark:text-white"
                     >
                       Correo Electrónico
                     </label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Ingresa tu correo electrónico"
-                      required
-                      className="border-stroke dark:text-body-color-dark dark:shadow-two w-full rounded-sm border bg-[#f8f8f8] px-6 py-3 text-base text-body-color outline-none transition-all duration-300 focus:border-primary dark:border-transparent dark:bg-[#2C303B] dark:focus:border-primary dark:focus:shadow-none"
-                    />
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-body-color dark:text-white">
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                        </svg>
+                      </span>
+                      <input
+                        type="email"
+                        name="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="correo@ejemplo.com"
+                        required
+                        className="w-full rounded-lg border border-stroke bg-transparent py-3 pl-12 pr-6 text-base text-body-color outline-none transition-all focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                      />
+                    </div>
                   </div>
-                  <div className="mb-8">
+                  <div className="mb-6">
                     <label
                       htmlFor="password"
-                      className="mb-3 block text-sm text-dark dark:text-white"
+                      className="mb-3 block text-sm font-medium text-dark dark:text-white"
                     >
                       Contraseña
                     </label>
-                    <input
-                      type="password"
-                      name="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Ingresa tu contraseña"
-                      required
-                      className="border-stroke dark:text-body-color-dark dark:shadow-two w-full rounded-sm border bg-[#f8f8f8] px-6 py-3 text-base text-body-color outline-none transition-all duration-300 focus:border-primary dark:border-transparent dark:bg-[#2C303B] dark:focus:border-primary dark:focus:shadow-none"
-                    />
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-body-color dark:text-white">
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      </span>
+                      <input
+                        type="password"
+                        name="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        required
+                        className="w-full rounded-lg border border-stroke bg-transparent py-3 pl-12 pr-6 text-base text-body-color outline-none transition-all focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:focus:border-primary"
+                      />
+                    </div>
                   </div>
-                  <div className="mb-8 flex flex-col justify-between sm:flex-row sm:items-center">
-                    <div className="mb-4 sm:mb-0">
-                      <label
-                        htmlFor="checkboxLabel"
-                        className="flex cursor-pointer select-none items-center text-sm font-medium text-body-color"
-                      >
-                        <div className="relative">
-                          <input
-                            type="checkbox"
-                            id="checkboxLabel"
-                            className="sr-only"
-                          />
-                          <div className="box mr-4 flex h-5 w-5 items-center justify-center rounded border border-body-color border-opacity-20 dark:border-white dark:border-opacity-10">
-                            <span className="opacity-0">
-                              <svg
-                                width="11"
-                                height="8"
-                                viewBox="0 0 11 8"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg"
-                              >
-                                <path
-                                  d="M10.0915 0.951972L10.0867 0.946075L10.0813 0.940568C9.90076 0.753564 9.61034 0.753146 9.42927 0.939309L4.16201 6.22962L1.58507 3.63469C1.40401 3.44841 1.11351 3.44879 0.932892 3.63584C0.755703 3.81933 0.755703 4.10875 0.932892 4.29224L0.932878 4.29225L0.934851 4.29424L3.58046 6.95832C3.73676 7.11955 3.94983 7.2 4.1473 7.2C4.36196 7.2 4.55963 7.11773 4.71406 6.9584L10.0468 1.60234C10.2436 1.4199 10.2421 1.1339 10.0915 0.951972ZM4.2327 6.30081L4.2317 6.2998C4.23206 6.30015 4.23237 6.30049 4.23269 6.30082L4.2327 6.30081Z"
-                                  fill="#3056D3"
-                                  stroke="#3056D3"
-                                  strokeWidth="0.4"
-                                />
-                              </svg>
-                            </span>
-                          </div>
-                        </div>
-                        Mantener sesión iniciada
-                      </label>
-                    </div>
-                    <div>
-                      <a
-                        href="#0"
-                        className="text-sm font-medium text-primary hover:underline"
-                      >
-                        ¿Olvidaste tu contraseña?
-                      </a>
-                    </div>
+                  <div className="mb-6 flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswordModal(true)}
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      ¿Olvidaste tu contraseña?
+                    </button>
                   </div>
                   <div className="mb-6">
                     <button 
                       type="submit"
-                      className="shadow-submit dark:shadow-submit-dark flex w-full items-center justify-center rounded-sm bg-primary px-9 py-4 text-base font-medium text-white duration-300 hover:bg-primary/90">
-                      Iniciar Sesión
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-9 py-4 text-base font-medium text-white shadow-lg transition duration-300 hover:bg-primary/90 hover:shadow-xl">
+                      <span>Iniciar Sesión</span>
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
                     </button>
                   </div>
                 </form>
@@ -153,6 +139,45 @@ const SigninPage = () => {
             </div>
           </div>
         </div>
+
+        {/* Modal de contraseña olvidada */}
+        {showPasswordModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+            <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-dark">
+              <div className="mb-4 flex justify-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                  <svg className="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                </div>
+              </div>
+              <h3 className="mb-2 text-center text-xl font-bold text-black dark:text-white">
+                ¿Olvidaste tu contraseña?
+              </h3>
+              <p className="mb-4 text-center text-body-color dark:text-white">
+                Contacta al desarrollador para recuperar tu acceso
+              </p>
+              <div className="mb-6 rounded-lg bg-primary/5 p-4 text-center">
+                <p className="mb-2 text-sm font-medium text-body-color dark:text-white">
+                  Joan Robles
+                </p>
+                <a 
+                  href="tel:+60864448"
+                  className="text-2xl font-bold text-primary hover:underline"
+                >
+                  +60864448
+                </a>
+              </div>
+              <button
+                onClick={() => setShowPasswordModal(false)}
+                className="w-full rounded-lg bg-primary px-6 py-3 font-medium text-white transition hover:bg-primary/90"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="absolute left-0 top-0 z-[-1]">
           <svg
             width="1440"

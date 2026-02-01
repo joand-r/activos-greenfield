@@ -1,11 +1,11 @@
 "use client";
 
 import ScrollUp from "@/components/Common/ScrollUp";
-import Hero from "@/components/Hero";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { articuloService, Articulo } from "@/services/articulo.service";
 import { lugarService } from "@/services/lugar.service";
+import { useRouter } from "next/navigation";
 
 interface Lugar {
   id: number;
@@ -16,9 +16,13 @@ interface Lugar {
 }
 
 export default function Home() {
+  const router = useRouter();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<Articulo[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [totalArticulos, setTotalArticulos] = useState(0);
   const [lugares, setLugares] = useState<Lugar[]>([]);
   const [articulosPorLugar, setArticulosPorLugar] = useState<{[key: number]: Articulo[]}>({});
-  const [loading, setLoading] = useState(true);
   const [tipoSeleccionado, setTipoSeleccionado] = useState<string>("todos");
 
   useEffect(() => {
@@ -34,6 +38,7 @@ export default function Home() {
       ]);
       
       setLugares(lugaresData);
+      setTotalArticulos(articulosData.length);
       
       // Agrupar artículos por lugar
       const articulosPorLugarTemp: {[key: number]: Articulo[]} = {};
@@ -46,16 +51,42 @@ export default function Home() {
       setArticulosPorLugar(articulosPorLugarTemp);
     } catch (error) {
       console.error("Error al cargar datos:", error);
+    }
+  };
+
+  const handleSearch = async (value: string) => {
+    setSearchTerm(value);
+    
+    if (value.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const articulos = await articuloService.getAll({ incluirInactivos: 'true' });
+      const filtered = articulos.filter((articulo: Articulo) => 
+        articulo.nombre.toLowerCase().includes(value.toLowerCase()) ||
+        articulo.codigo.toLowerCase().includes(value.toLowerCase()) ||
+        (articulo.descripcion && articulo.descripcion.toLowerCase().includes(value.toLowerCase()))
+      );
+      setSearchResults(filtered);
+    } catch (error) {
+      console.error("Error al buscar:", error);
+      setSearchResults([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleArticuloClick = (articulo: Articulo) => {
+    router.push(`/articulo/${articulo.id}`);
   };
 
   const lugaresFiltrados = tipoSeleccionado === "todos" 
     ? lugares 
     : lugares.filter(l => l.tipo === tipoSeleccionado);
 
-  const totalArticulos = Object.values(articulosPorLugar).reduce((sum, arts) => sum + arts.length, 0);
   const totalLugares = lugares.length;
 
   const tiposLugar = [
@@ -74,52 +105,202 @@ export default function Home() {
     }
   };
 
-  const getIconoPorEstado = (estado: string) => {
-    return null; // Sin iconos
-  };
-
   return (
     <>
       <ScrollUp />
-      <Hero />
+      
+      {/* Hero Section con Buscador Principal */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-white to-primary/10 dark:from-gray-dark dark:via-bg-color-dark dark:to-gray-dark pt-[120px] pb-[80px] md:pt-[150px] md:pb-[100px] lg:pt-[180px] lg:pb-[120px]">
+        {/* Decoraciones de fondo */}
+        <div className="absolute top-0 right-0 -z-10 opacity-10 dark:opacity-5">
+          <svg width="450" height="556" viewBox="0 0 450 556" fill="none">
+            <circle cx="277" cy="63" r="225" fill="url(#paint0_linear_25:217)"/>
+            <defs>
+              <linearGradient id="paint0_linear_25:217" x1="452.5" y1="63" x2="52" y2="63" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#4A6CF7"/>
+                <stop offset="1" stopColor="#4A6CF7" stopOpacity="0"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
 
-      {/* Estadísticas */}
-      <section className="py-16 md:py-20 lg:py-28 bg-gray-light dark:bg-gray-dark">
         <div className="container">
-          <div className="-mx-4 flex flex-wrap justify-center">
-            <div className="w-full px-4 md:w-1/2 lg:w-1/3">
-              <div className="wow fadeInUp mb-8 text-center" data-wow-delay=".1s">
-                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
-                  <svg className="h-10 w-10 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                  </svg>
+          <div className="-mx-4 flex flex-wrap items-center">
+            <div className="w-full px-4">
+              <div className="mx-auto max-w-[800px] text-center">
+                {/* Badge */}
+                <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-primary"></span>
+                  <span className="text-sm font-medium text-primary">
+                    {totalArticulos} Activos Registrados
+                  </span>
                 </div>
-                <h3 className="mb-2 text-4xl font-bold text-black dark:text-white">
-                  {loading ? "..." : totalArticulos}
-                </h3>
-                <p className="text-base text-body-color">Activos Totales</p>
-              </div>
-            </div>
-            <div className="w-full px-4 md:w-1/2 lg:w-1/3">
-              <div className="wow fadeInUp mb-8 text-center" data-wow-delay=".15s">
-                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
-                  <svg className="h-10 w-10 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
+
+                {/* Título Principal */}
+                <h1 className="mb-5 text-4xl font-bold leading-tight text-black dark:text-white sm:text-5xl md:text-6xl lg:text-7xl">
+                  Sistema de Gestión
+                  <span className="block text-primary">de Activos Greenfield</span>
+                </h1>
+
+                <p className="mb-10 text-base text-body-color dark:text-body-color-dark sm:text-lg md:text-xl">
+                  Administra y controla todos los activos de tus viviendas, almacenes y oficinas de manera eficiente
+                </p>
+
+                {/* Buscador Principal */}
+                <div className="relative mx-auto max-w-[600px]">
+                  <div className="relative">
+                    {/* Icono de búsqueda */}
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2">
+                      <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                      </svg>
+                    </div>
+
+                    {/* Input */}
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => handleSearch(e.target.value)}
+                      placeholder="Buscar por código, nombre o descripción..."
+                      className="w-full rounded-2xl border-2 border-gray-200 bg-white py-5 pl-14 pr-5 text-base font-medium text-black outline-none transition focus:border-primary dark:border-gray-700 dark:bg-gray-dark dark:text-white dark:focus:border-primary"
+                    />
+
+                    {/* Indicador de carga */}
+                    {loading && (
+                      <div className="absolute right-5 top-1/2 -translate-y-1/2">
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Sugerencias de búsqueda */}
+                  {!searchTerm && (
+                    <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                      <span className="text-sm text-body-color">Búsqueda rápida:</span>
+                      <button 
+                        onClick={() => handleSearch("Computadora")}
+                        className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                      >
+                        Computadora
+                      </button>
+                      <button 
+                        onClick={() => handleSearch("Silla")}
+                        className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                      >
+                        Silla
+                      </button>
+                      <button 
+                        onClick={() => handleSearch("Mesa")}
+                        className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                      >
+                        Mesa
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Resultados de búsqueda */}
+                  {searchTerm && searchResults.length > 0 && (
+                    <div className="mt-6 max-h-[500px] overflow-y-auto rounded-2xl border-2 border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-dark">
+                      <div className="p-4">
+                        <p className="mb-4 text-sm font-semibold text-body-color">
+                          {searchResults.length} resultado{searchResults.length !== 1 ? 's' : ''} encontrado{searchResults.length !== 1 ? 's' : ''}
+                        </p>
+                        <div className="space-y-3">
+                          {searchResults.map((articulo) => (
+                            <div
+                              key={articulo.id}
+                              onClick={() => handleArticuloClick(articulo)}
+                              className="group flex cursor-pointer items-start gap-4 rounded-xl border border-gray-100 bg-gray-50 p-4 transition hover:border-primary hover:bg-primary/5 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-primary dark:hover:bg-primary/10"
+                            >
+                              {/* Imagen */}
+                              <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700">
+                                {articulo.imagen ? (
+                                  <img
+                                    src={articulo.imagen}
+                                    alt={articulo.nombre}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-full items-center justify-center">
+                                    <svg className="h-8 w-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"/>
+                                    </svg>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Info */}
+                              <div className="flex-1">
+                                <div className="mb-1 flex items-start justify-between">
+                                  <h4 className="font-bold text-black group-hover:text-primary dark:text-white dark:group-hover:text-primary">
+                                    {articulo.nombre}
+                                  </h4>
+                                  <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                                    x{articulo.cantidad}
+                                  </span>
+                                </div>
+                                <p className="mb-2 text-sm font-medium text-gray-600 dark:text-gray-400">
+                                  {articulo.codigo}
+                                </p>
+                                <div className="flex flex-wrap items-center gap-2 text-xs text-body-color">
+                                  <span className="inline-flex items-center gap-1">
+                                    <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    </svg>
+                                    {articulo.lugar_nombre || 'Sin ubicación'}
+                                  </span>
+                                  <span>•</span>
+                                  <span>{articulo.estado}</span>
+                                </div>
+                              </div>
+
+                              {/* Icono flecha */}
+                              <div className="flex-shrink-0">
+                                <svg className="h-5 w-5 text-gray-400 transition group-hover:translate-x-1 group-hover:text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
+                                </svg>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sin resultados */}
+                  {searchTerm && !loading && searchResults.length === 0 && (
+                    <div className="mt-6 rounded-2xl border-2 border-gray-200 bg-white p-8 text-center dark:border-gray-700 dark:bg-gray-dark">
+                      <svg className="mx-auto mb-4 h-16 w-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                      <p className="text-base text-body-color">
+                        No se encontraron activos con "<strong>{searchTerm}</strong>"
+                      </p>
+                    </div>
+                  )}
                 </div>
-                <h3 className="mb-2 text-4xl font-bold text-black dark:text-white">
-                  {loading ? "..." : totalLugares}
-                </h3>
-                <p className="text-base text-body-color">Ubicaciones</p>
+
+                {/* Accesos rápidos */}
+                <div className="mt-12 flex flex-wrap items-center justify-center gap-4">
+                  <Link
+                    href="/articulos"
+                    className="group inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-white transition hover:bg-primary/90"
+                  >
+                    <span>Ver Todos los Activos</span>
+                    <svg className="h-4 w-4 transition group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Filtros por Tipo de Lugar */}
-      <section className="py-16 md:py-20 lg:py-28">
+      {/* Sección de Lugares */}
+      <section className="py-16 md:py-20 lg:py-28 bg-gray-light dark:bg-gray-dark">
         <div className="container">
           <div className="-mx-4 flex flex-wrap">
             <div className="w-full px-4">
@@ -249,47 +430,13 @@ export default function Home() {
             })}
           </div>
 
-          {lugaresFiltrados.length === 0 && !loading && (
+          {lugaresFiltrados.length === 0 && (
             <div className="text-center py-12">
               <p className="text-lg text-gray-500 dark:text-gray-400">
                 No hay ubicaciones del tipo seleccionado
               </p>
             </div>
           )}
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-16 md:py-20 lg:py-28 bg-gray-light dark:bg-bg-color-dark">
-        <div className="container">
-          <div className="wow fadeInUp rounded-lg bg-primary px-8 py-11 shadow-three dark:bg-gray-dark sm:p-[55px] lg:px-8 xl:px-[55px]" data-wow-delay=".1s">
-            <div className="-mx-4 flex flex-wrap items-center">
-              <div className="w-full px-4 lg:w-1/2">
-                <h2 className="mb-4 text-3xl font-bold leading-tight text-white dark:text-white sm:text-4xl sm:leading-tight">
-                  ¿Necesitas gestionar los activos?
-                </h2>
-                <p className="mb-6 text-base leading-relaxed text-white/90 dark:text-gray-300 lg:mb-0">
-                  Accede al panel de administración para gestionar todos los activos del sistema
-                </p>
-              </div>
-              <div className="w-full px-4 lg:w-1/2">
-                <div className="flex flex-wrap lg:justify-end gap-3">
-                  <Link
-                    href="/admin/articulos/lista"
-                    className="inline-block rounded-lg bg-white dark:bg-gray-800 px-8 py-3 text-base font-semibold text-primary dark:text-white transition hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    Panel de Admin
-                  </Link>
-                  <Link
-                    href="/admin/articulos/registrar"
-                    className="inline-block rounded-lg border-2 border-white dark:border-gray-600 bg-transparent px-8 py-3 text-base font-semibold text-white dark:text-white transition hover:bg-white hover:text-primary dark:hover:bg-gray-700"
-                  >
-                    Registrar Activo
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
     </>
