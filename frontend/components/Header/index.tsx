@@ -190,22 +190,34 @@ const Header = () => {
                               {/* Si es el menú de Lugar y no está autenticado, mostrar lugares dinámicos */}
                               {menuItem.title === "Lugar" && !isAuthenticated ? (
                                 <>
-                                  {Object.keys(lugaresPorTipo).map((tipo, tipoIdx) => (
-                                    <div key={tipoIdx} className="mb-3">
-                                      <p className="mb-2 px-3 text-xs font-bold uppercase text-body-color">
-                                        {tipo}
-                                      </p>
-                                      {lugaresPorTipo[tipo].map((lugar: any) => (
-                                        <Link
-                                          key={lugar.id}
-                                          href={`/lugar/${lugar.tipo}/${lugar.id}`}
-                                          className="block rounded py-2 text-sm text-dark hover:text-primary dark:text-white/70 dark:hover:text-white lg:px-3"
-                                        >
-                                          {lugar.nombre} ({lugar.iniciales})
-                                        </Link>
-                                      ))}
-                                    </div>
-                                  ))}
+                                  {['Vivienda', 'Almacén', 'Oficina'].map((tipoNombre, tipoIdx) => {
+                                    const tipoKey = tipoNombre.toLowerCase().replace('é', 'e');
+                                    const lugaresDelTipo = lugaresPorTipo[tipoNombre] || [];
+                                    
+                                    if (lugaresDelTipo.length === 0) return null;
+                                    
+                                    return (
+                                      <div key={tipoIdx} className="mb-3 last:mb-0">
+                                        <p className="mb-2 px-3 text-xs font-bold uppercase text-body-color dark:text-white/50">
+                                          {tipoNombre}
+                                        </p>
+                                        {lugaresDelTipo.map((lugar: any) => (
+                                          <Link
+                                            key={lugar.id}
+                                            href={`/lugar/${tipoKey}?id=${lugar.id}`}
+                                            className="block rounded py-2 text-sm text-dark hover:bg-primary/5 hover:text-primary dark:text-white/70 dark:hover:text-white lg:px-3"
+                                          >
+                                            {lugar.nombre}
+                                          </Link>
+                                        ))}
+                                      </div>
+                                    );
+                                  })}
+                                  {Object.keys(lugaresPorTipo).length === 0 && (
+                                    <p className="px-3 py-2 text-sm text-body-color dark:text-white/50">
+                                      No hay lugares registrados
+                                    </p>
+                                  )}
                                 </>
                               ) : (
                                 /* Menú normal */
