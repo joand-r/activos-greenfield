@@ -23,7 +23,7 @@ export interface Movimiento {
 export interface CrearMovimientoDTO {
   activo_id: number;
   lugar_origen_id: number;
-  lugar_destino_id: number;
+  lugar_destino_id?: number;
   fecha_movimiento?: string;
   responsable: string;
   observaciones?: string;
