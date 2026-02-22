@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
 import { pool } from './config/database.js';
 import { loggerMiddleware } from './middlewares/auth.middleware.js';
 
@@ -67,14 +68,57 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(loggerMiddleware);
 
-// Verificar conexión a la base de datos al iniciar
-pool.query('SELECT NOW()', (err, res) => {
-  if (err) {
-    console.error('❌ Error al conectar con la base de datos:', err);
-  } else {
+// Verificar conexión y aplicar columnas nuevas de forma idempotente
+(async () => {
+  try {
+    await pool.query('SELECT NOW()');
     console.log('✅ Conexión exitosa a PostgreSQL');
+
+    // Asegurar que nuevo_activo_id existe (puede no existir en DBs antiguas)
+    await pool.query(`
+      ALTER TABLE movimiento
+        ADD COLUMN IF NOT EXISTS nuevo_activo_id BIGINT;
+    `);
+
+    // Asegurar que serie existe en activo
+    await pool.query(`
+      ALTER TABLE activo
+        ADD COLUMN IF NOT EXISTS serie VARCHAR(100);
+    `);
+
+    console.log('✅ Columnas verificadas/migradas');
+
+    // Crear superadmin automáticamente si no existe
+    const SUPERADMIN_EMAIL = 'joandanielrr0@gmail.com';
+    const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || 'Creed9775';
+
+    const existing = await pool.query(
+      'SELECT id, rol FROM usuario WHERE email = $1',
+      [SUPERADMIN_EMAIL]
+    );
+
+    if (existing.rows.length === 0) {
+      const hashed = await bcrypt.hash(SUPERADMIN_PASSWORD, 10);
+      await pool.query(
+        `INSERT INTO usuario (nombre, email, password, rol)
+         VALUES ($1, $2, $3, 'superadmin')`,
+        ['Joan Daniel (Owner)', SUPERADMIN_EMAIL, hashed]
+      );
+      console.log('✅ Superadmin creado:', SUPERADMIN_EMAIL);
+    } else if (existing.rows[0].rol !== 'superadmin') {
+      await pool.query(
+        'UPDATE usuario SET rol = $1 WHERE email = $2',
+        ['superadmin', SUPERADMIN_EMAIL]
+      );
+      console.log('✅ Superadmin actualizado:', SUPERADMIN_EMAIL);
+    } else {
+      console.log('✅ Superadmin ya existe');
+    }
+  } catch (err) {
+    console.error('❌ Error al inicializar DB:', err);
   }
-});
+})();
+
 
 // Rutas básicas
 app.get('/', (req, res) => {

@@ -53,7 +53,7 @@ export const obtenerActivos = async (req, res) => {
       paramCount++;
     }
     
-    query += ' ORDER BY a.codigo ASC';
+    query += ' ORDER BY a.id DESC';
     
     const result = await pool.query(query, params);
     res.json(result.rows);

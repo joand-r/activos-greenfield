@@ -14,6 +14,7 @@ export const obtenerMovimientos = async (req, res) => {
         m.*,
         a.nombre as activo_nombre,
         a.codigo as activo_codigo,
+        a.imagen as activo_imagen,
         lo.nombre as lugar_origen_nombre,
         ld.nombre as lugar_destino_nombre,
         na.codigo as nuevo_activo_codigo,
@@ -33,7 +34,7 @@ export const obtenerMovimientos = async (req, res) => {
       params.push(activo_id);
     }
     
-    query += ' ORDER BY m.fecha_movimiento DESC';
+    query += ' ORDER BY m.id DESC';
     
     const result = await pool.query(query, params);
     res.json(result.rows);

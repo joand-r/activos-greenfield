@@ -14,7 +14,7 @@ dotenv.config();
 const SUPERADMIN_EMAIL = 'joandanielrr0@gmail.com';
 const SUPERADMIN_NOMBRE = 'Joan Daniel (Owner)';
 // Cambia esta contraseña antes de ejecutar el script
-const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || 'Greenfield2024!';
+const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || 'Creed9775';
 
 async function seedSuperAdmin() {
   try {
