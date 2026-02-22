@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Breadcrumb from "@/components/Common/Breadcrumb";
-import { articuloService, Articulo } from "@/services/articulo.service";
+import { activoService, Activo } from "@/services/activo.service";
 import { lugarService } from "@/services/lugar.service";
 import Link from "next/link";
 
@@ -12,7 +12,7 @@ export default function LugarDetallesPage() {
   const lugarId = params.id as string;
   const tipo = params.tipo as string;
   
-  const [articulos, setArticulos] = useState<Articulo[]>([]);
+  const [articulos, setArticulos] = useState<Activo[]>([]);
   const [lugar, setLugar] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -23,13 +23,13 @@ export default function LugarDetallesPage() {
   const cargarDatos = async () => {
     try {
       const [articulosData, lugarData] = await Promise.all([
-        articuloService.getAll({ incluirInactivos: 'true' }),
+        activoService.getAll(),
         lugarService.getById(parseInt(lugarId))
       ]);
       
-      // Filtrar artículos por lugar
+      // Filtrar activos por lugar
       const articulosFiltrados = articulosData.filter(
-        (art: Articulo) => art.lugar_id === parseInt(lugarId) || art.lugarId === parseInt(lugarId)
+        (art: Activo) => art.lugar_id === parseInt(lugarId)
       );
       
       setArticulos(articulosFiltrados);
@@ -61,7 +61,7 @@ export default function LugarDetallesPage() {
     const ventana = window.open('', '_blank');
     if (!ventana) return;
     
-    const articulosActivos = articulos.filter(a => a.activo !== false);
+    const articulosActivos = articulos.filter(a => !['VENDIDO','DONADO','DANADO','TRANSFERIR'].includes(a.estado ?? ''));
     const totalArticulos = articulos.length;
     const totalActivos = articulosActivos.length;
     const totalInactivos = totalArticulos - totalActivos;
@@ -75,7 +75,7 @@ export default function LugarDetallesPage() {
     // Agrupar por categoría
     const porCategoria: {[key: string]: number} = {};
     articulos.forEach(art => {
-      const cat = art.categoria || 'Sin categoría';
+      const cat = art.tipo_activo || 'Sin tipo';
       porCategoria[cat] = (porCategoria[cat] || 0) + 1;
     });
     
@@ -255,8 +255,8 @@ export default function LugarDetallesPage() {
             <div class="stat-label">Inactivos</div>
           </div>
           <div class="stat-card">
-            <div class="stat-number">${articulos.reduce((sum, a) => sum + (a.cantidad || 0), 0)}</div>
-            <div class="stat-label">Cantidad Total</div>
+            <div class="stat-number">${articulos.length}</div>
+            <div class="stat-label">Total Activos</div>
           </div>
         </div>
         
@@ -307,8 +307,8 @@ export default function LugarDetallesPage() {
               <div class="item-code">${art.codigo}</div>
               <div class="item-name">${art.nombre}</div>
               <div class="item-details">
-                Estado: ${art.estado} | Cantidad: ${art.cantidad}<br>
-                Categoría: ${art.categoria || 'N/A'} | Marca: ${art.marca || 'N/A'}
+                Estado: ${art.estado}<br>
+                Tipo: ${art.tipo_activo || 'N/A'} | Marca: ${art.marca_nombre || 'N/A'}
               </div>
             </div>
           `).join('')}
@@ -411,7 +411,7 @@ export default function LugarDetallesPage() {
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-black dark:text-white">
-                      {articulos.filter(a => a.activo !== false).length}
+                      {articulos.filter(a => !['VENDIDO','DONADO','DANADO','TRANSFERIR'].includes(a.estado ?? '')).length}
                     </p>
                     <p className="text-sm text-body-color">Activos</p>
                   </div>
@@ -427,7 +427,7 @@ export default function LugarDetallesPage() {
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-black dark:text-white">
-                      {articulos.filter(a => a.activo === false).length}
+                      {articulos.filter(a => ['VENDIDO','DONADO','DANADO','TRANSFERIR'].includes(a.estado ?? '')).length}
                     </p>
                     <p className="text-sm text-body-color">Inactivos</p>
                   </div>
@@ -443,9 +443,9 @@ export default function LugarDetallesPage() {
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-black dark:text-white">
-                      {articulos.reduce((sum, a) => sum + (a.cantidad || 0), 0)}
+                      {articulos.length}
                     </p>
-                    <p className="text-sm text-body-color">Cantidad Total</p>
+                    <p className="text-sm text-body-color">Total Activos</p>
                   </div>
                 </div>
               </div>
@@ -475,12 +475,8 @@ export default function LugarDetallesPage() {
                         </svg>
                       </div>
                     )}
-                    {/* Badge de cantidad */}
-                    <div className="absolute top-3 right-3 bg-black/70 text-white text-sm font-bold px-3 py-1.5 rounded-lg">
-                      x{articulo.cantidad}
-                    </div>
-                    {/* Badge de activo/inactivo */}
-                    {articulo.activo === false && (
+                    {/* Badge de inactivo */}
+                    {['VENDIDO','DONADO','DANADO','TRANSFERIR'].includes(articulo.estado ?? '') && (
                       <div className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
                         Inactivo
                       </div>
@@ -506,12 +502,12 @@ export default function LugarDetallesPage() {
                     {/* Info adicional */}
                     <div className="space-y-2 mb-4">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-body-color">Categoría:</span>
-                        <span className="font-semibold text-black dark:text-white">{articulo.categoria}</span>
+                        <span className="text-body-color">Tipo:</span>
+                        <span className="font-semibold text-black dark:text-white">{articulo.tipo_activo || 'N/A'}</span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-body-color">Marca:</span>
-                        <span className="font-semibold text-black dark:text-white">{articulo.marca}</span>
+                        <span className="font-semibold text-black dark:text-white">{articulo.marca_nombre || 'N/A'}</span>
                       </div>
                     </div>
 

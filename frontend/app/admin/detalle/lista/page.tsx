@@ -66,7 +66,7 @@ const ListaMovimientosPage = () => {
               Movimientos Registrados ({movimientosFiltrados.length})
             </h2>
             <Link
-              href="/admin/detalle/registrar"
+              href="/admin/movimientos/registrar"
               className="rounded-sm bg-primary px-6 py-3 text-base font-medium text-white shadow-submit duration-300 hover:bg-primary/90 dark:shadow-submit-dark"
             >
               + Registrar Movimiento

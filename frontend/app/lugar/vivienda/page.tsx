@@ -3,12 +3,12 @@
 import Breadcrumb from "@/components/Common/Breadcrumb";
 import { useEffect, useState } from "react";
 import { useLoading } from "@/contexts/LoadingContext";
-import { articuloService, Articulo } from "@/services/articulo.service";
+import { activoService, Activo } from "@/services/activo.service";
 import { lugarService, Lugar } from "@/services/lugar.service";
 
 const ViviendaPage = () => {
   const { showLoading, hideLoading } = useLoading();
-  const [activos, setActivos] = useState<Articulo[]>([]);
+  const [activos, setActivos] = useState<Activo[]>([]);
   const [lugar, setLugar] = useState<Lugar | null>(null);
   const [error, setError] = useState<string>("");
   
@@ -23,7 +23,7 @@ const ViviendaPage = () => {
         if (vivienda) {
           setLugar(vivienda);
           // Cargar artículos del lugar
-          const data = await articuloService.getByLugar(vivienda.id);
+          const data = await activoService.getAll({ lugar_id: vivienda.id });
           setActivos(data);
         } else {
           setError('No se encontró el lugar de tipo Vivienda');

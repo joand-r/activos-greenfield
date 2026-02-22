@@ -31,6 +31,7 @@ export interface Activo {
   nombre: string;
   tipo_activo: TipoActivo;
   codigo: string;
+  serie?: string | null;
   imagen?: string | null;
   estado?: EstadoActivo | null;
   descripcion?: string | null;
