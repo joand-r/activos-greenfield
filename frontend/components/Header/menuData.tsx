@@ -1,6 +1,6 @@
 import { Menu } from "@/types/menu";
 
-// Menú público (visible para todos)
+// Menú público (visible para todos — solo secciones de lugares)
 const menuData: Menu[] = [
   {
     id: 2,
@@ -23,25 +23,6 @@ const menuData: Menu[] = [
         id: 23,
         title: "Oficina",
         path: "/lugar/oficina",
-        newTab: false,
-      },
-    ],
-  },
-  {
-    id: 3,
-    title: "Activos",
-    newTab: false,
-    submenu: [
-      {
-        id: 31,
-        title: "Lista de Activos",
-        path: "/admin/activos/lista",
-        newTab: false,
-      },
-      {
-        id: 32,
-        title: "Registrar Activo",
-        path: "/admin/activos/registrar",
         newTab: false,
       },
     ],
@@ -161,3 +142,26 @@ export const adminMenuData: Menu[] = [
 ];
 
 export default menuData;
+
+// Menú exclusivo para superadmin (se agrega al adminMenuData)
+export const superAdminMenuItems: Menu[] = [
+  {
+    id: 99,
+    title: "SuperAdmin",
+    newTab: false,
+    submenu: [
+      {
+        id: 991,
+        title: "⚡ Bitácora de Auditoría",
+        path: "/admin/superadmin/bitacora",
+        newTab: false,
+      },
+      {
+        id: 992,
+        title: "🗄️ Backups & Usuarios",
+        path: "/admin/superadmin/backups",
+        newTab: false,
+      },
+    ],
+  },
+];

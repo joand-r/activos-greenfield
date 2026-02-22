@@ -12,6 +12,7 @@ import proveedorRoutes from './routes/proveedor.routes.js';
 import lugarRoutes from './routes/lugar.routes.js';
 import activoRoutes from './routes/activo.routes.js';
 import movimientoRoutes from './routes/movimiento.routes.js';
+import superadminRoutes from './routes/superadmin.routes.js';
 
 // Configuración
 dotenv.config();
@@ -109,6 +110,7 @@ app.use('/api/proveedores', proveedorRoutes);
 app.use('/api/lugares', lugarRoutes);
 app.use('/api/activos', activoRoutes);
 app.use('/api/movimientos', movimientoRoutes);
+app.use('/api/superadmin', superadminRoutes);
 
 // Manejo de errores
 app.use((err, req, res, next) => {

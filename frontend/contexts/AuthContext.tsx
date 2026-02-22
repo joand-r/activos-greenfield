@@ -14,6 +14,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
+  isSuperAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (nombre: string, email: string, password: string, rol?: string) => Promise<void>;
   logout: () => void;
@@ -66,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         loading,
         isAuthenticated: !!user,
+        isSuperAdmin: user?.rol === 'superadmin',
         login,
         register,
         logout,

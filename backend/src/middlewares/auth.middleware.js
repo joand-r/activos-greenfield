@@ -59,6 +59,24 @@ export const verifyAdmin = async (req, res, next) => {
   }
 };
 
+// Middleware para verificar rol de superadmin
+export const verifySuperAdmin = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'No autenticado' });
+    }
+
+    if (req.user.rol !== 'superadmin') {
+      return res.status(403).json({ error: 'Acceso denegado. Se requiere rol de superadmin' });
+    }
+
+    next();
+  } catch (error) {
+    console.error('Error en verifySuperAdmin:', error);
+    return res.status(500).json({ error: 'Error al verificar permisos' });
+  }
+};
+
 // Middleware de logging
 export const loggerMiddleware = (req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);

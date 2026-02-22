@@ -4,12 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import ThemeToggler from "./ThemeToggler";
-import menuData, { adminMenuData } from "./menuData";
+import menuData, { adminMenuData, superAdminMenuItems } from "./menuData";
 import { useAuth } from "@/contexts/AuthContext";
 import { lugarService } from "@/services/lugar.service";
 
 const Header = () => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, isSuperAdmin, logout } = useAuth();
   
   // Lugares dinámicos
   const [lugares, setLugares] = useState<any[]>([]);
@@ -39,8 +39,11 @@ const Header = () => {
     return acc;
   }, {});
   
-  // Seleccionar el menú según si está autenticado
-  const currentMenu = isAuthenticated ? adminMenuData : menuData;
+  // Seleccionar el menú según si está autenticado; añadir superadmin items si corresponde
+  const baseMenu = isAuthenticated ? adminMenuData : menuData;
+  const currentMenu = isAuthenticated && isSuperAdmin
+    ? [...baseMenu, ...superAdminMenuItems]
+    : baseMenu;
   
   // Navbar toggle
   const [navbarOpen, setNavbarOpen] = useState(false);
