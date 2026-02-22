@@ -1,19 +1,35 @@
-import { api } from '@/lib/api';
+import api from '../lib/api';
 
 export interface Lugar {
   id: number;
   nombre: string;
-  tipo: string;
-  iniciales: string;
-  createdAt?: string;
-  updatedAt?: string;
+  inicial: string;
+  tipo?: string | null;
 }
 
 export const lugarService = {
-  getAll: () => api.get('/lugares'),
-  getById: (id: number) => api.get(`/lugares/${id}`),
-  getIniciales: (id: number) => api.get(`/lugares/${id}/iniciales`),
-  create: (data: any) => api.post('/lugares', data),
-  update: (id: number, data: any) => api.put(`/lugares/${id}`, data),
-  delete: (id: number) => api.delete(`/lugares/${id}`)
+  getAll: async (tipo?: string): Promise<Lugar[]> => {
+    const params = tipo ? { tipo } : {};
+    const response = await api.get('/lugares', { params });
+    return response.data;
+  },
+
+  getById: async (id: number): Promise<Lugar> => {
+    const response = await api.get(`/lugares/${id}`);
+    return response.data;
+  },
+
+  create: async (data: Omit<Lugar, 'id'>): Promise<Lugar> => {
+    const response = await api.post('/lugares', data);
+    return response.data;
+  },
+
+  update: async (id: number, data: Omit<Lugar, 'id'>): Promise<Lugar> => {
+    const response = await api.put(`/lugares/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/lugares/${id}`);
+  },
 };

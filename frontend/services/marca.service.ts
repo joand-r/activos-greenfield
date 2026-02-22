@@ -1,17 +1,38 @@
-import { api } from '@/lib/api';
+import api from '../lib/api';
 
 export interface Marca {
   id: number;
   nombre: string;
-  descripcion?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  descripcion?: string | null;
 }
 
 export const marcaService = {
-  getAll: () => api.get('/marcas'),
-  getById: (id: number) => api.get(`/marcas/${id}`),
-  create: (data: any) => api.post('/marcas', data),
-  update: (id: number, data: any) => api.put(`/marcas/${id}`, data),
-  delete: (id: number) => api.delete(`/marcas/${id}`)
+  // Obtener todas las marcas
+  getAll: async (): Promise<Marca[]> => {
+    const response = await api.get('/marcas');
+    return response.data;
+  },
+
+  // Obtener marca por ID
+  getById: async (id: number): Promise<Marca> => {
+    const response = await api.get(`/marcas/${id}`);
+    return response.data;
+  },
+
+  // Crear marca
+  create: async (data: Omit<Marca, 'id'>): Promise<Marca> => {
+    const response = await api.post('/marcas', data);
+    return response.data;
+  },
+
+  // Actualizar marca
+  update: async (id: number, data: Omit<Marca, 'id'>): Promise<Marca> => {
+    const response = await api.put(`/marcas/${id}`, data);
+    return response.data;
+  },
+
+  // Eliminar marca
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/marcas/${id}`);
+  },
 };

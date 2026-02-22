@@ -1,38 +1,21 @@
 import express from 'express';
-import {
-  getProveedores,
-  getProveedorById,
-  createProveedor,
-  updateProveedor,
-  deleteProveedor
+import { 
+  obtenerProveedores,
+  obtenerProveedorPorId,
+  crearProveedor,
+  actualizarProveedor,
+  eliminarProveedor
 } from '../controllers/proveedor.controller.js';
-import { verifyToken, verifyAdmin } from '../middlewares/auth.middleware.js';
+import { authenticateToken } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-// @route   GET /api/proveedores
-// @desc    Obtener todos los proveedores
-// @access  Public
-router.get('/', getProveedores);
+router.use(authenticateToken);
 
-// @route   GET /api/proveedores/:id
-// @desc    Obtener un proveedor por ID
-// @access  Public
-router.get('/:id', getProveedorById);
-
-// @route   POST /api/proveedores
-// @desc    Crear nuevo proveedor
-// @access  Private/Admin
-router.post('/', verifyToken, verifyAdmin, createProveedor);
-
-// @route   PUT /api/proveedores/:id
-// @desc    Actualizar proveedor
-// @access  Private/Admin
-router.put('/:id', verifyToken, verifyAdmin, updateProveedor);
-
-// @route   DELETE /api/proveedores/:id
-// @desc    Eliminar proveedor
-// @access  Private/Admin
-router.delete('/:id', verifyToken, verifyAdmin, deleteProveedor);
+router.get('/', obtenerProveedores);
+router.get('/:id', obtenerProveedorPorId);
+router.post('/', crearProveedor);
+router.put('/:id', actualizarProveedor);
+router.delete('/:id', eliminarProveedor);
 
 export default router;

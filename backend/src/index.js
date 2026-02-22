@@ -6,13 +6,12 @@ import { loggerMiddleware } from './middlewares/auth.middleware.js';
 
 // Importar rutas
 import authRoutes from './routes/auth.routes.js';
-import categoriaRoutes from './routes/categoria.routes.js';
-import lugarRoutes from './routes/lugar.routes.js';
+import uploadRoutes from './routes/upload.routes.js';
 import marcaRoutes from './routes/marca.routes.js';
 import proveedorRoutes from './routes/proveedor.routes.js';
-import articuloRoutes from './routes/articulo.routes.js';
+import lugarRoutes from './routes/lugar.routes.js';
+import activoRoutes from './routes/activo.routes.js';
 import movimientoRoutes from './routes/movimiento.routes.js';
-import uploadRoutes from './routes/upload.routes.js';
 
 // Configuración
 dotenv.config();
@@ -60,16 +59,15 @@ app.get('/', (req, res) => {
   res.json({ 
     message: 'API Activos Greenfield',
     status: 'running',
-    version: '1.0.0',
+    version: '2.0.0',
     endpoints: {
       auth: '/api/auth',
-      categorias: '/api/categorias',
-      lugares: '/api/lugares',
+      upload: '/api/upload',
       marcas: '/api/marcas',
       proveedores: '/api/proveedores',
-      articulos: '/api/articulos',
-      movimientos: '/api/movimientos',
-      upload: '/api/upload'
+      lugares: '/api/lugares',
+      activos: '/api/activos',
+      movimientos: '/api/movimientos'
     }
   });
 });
@@ -84,13 +82,12 @@ app.get('/health', (req, res) => {
 
 // Registrar rutas de la API
 app.use('/api/auth', authRoutes);
-app.use('/api/categorias', categoriaRoutes);
-app.use('/api/lugares', lugarRoutes);
+app.use('/api/upload', uploadRoutes);
 app.use('/api/marcas', marcaRoutes);
 app.use('/api/proveedores', proveedorRoutes);
-app.use('/api/articulos', articuloRoutes);
+app.use('/api/lugares', lugarRoutes);
+app.use('/api/activos', activoRoutes);
 app.use('/api/movimientos', movimientoRoutes);
-app.use('/api/upload', uploadRoutes);
 
 // Manejo de errores
 app.use((err, req, res, next) => {

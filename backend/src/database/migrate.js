@@ -4,7 +4,10 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-dotenv.config();
+// Solo cargar .env si DATABASE_URL no está definida (permite usar Railway CLI)
+if (!process.env.DATABASE_URL) {
+  dotenv.config();
+}
 
 const { Pool } = pg;
 const __filename = fileURLToPath(import.meta.url);
@@ -12,15 +15,15 @@ const __dirname = path.dirname(__filename);
 
 // Configuración de conexión
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_PUBLIC_URL || process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? {
     rejectUnauthorized: false
   } : false,
-  host: process.env.DATABASE_URL ? undefined : (process.env.DB_HOST || 'localhost'),
-  port: process.env.DATABASE_URL ? undefined : (process.env.DB_PORT || 5432),
-  user: process.env.DATABASE_URL ? undefined : (process.env.DB_USER || 'postgres'),
-  password: process.env.DATABASE_URL ? undefined : process.env.DB_PASSWORD,
-  database: process.env.DATABASE_URL ? undefined : (process.env.DB_NAME || 'activos_greenfield'),
+  host: process.env.DATABASE_PUBLIC_URL || process.env.DATABASE_URL ? undefined : (process.env.DB_HOST || 'localhost'),
+  port: process.env.DATABASE_PUBLIC_URL || process.env.DATABASE_URL ? undefined : (process.env.DB_PORT || 5432),
+  user: process.env.DATABASE_PUBLIC_URL || process.env.DATABASE_URL ? undefined : (process.env.DB_USER || 'postgres'),
+  password: process.env.DATABASE_PUBLIC_URL || process.env.DATABASE_URL ? undefined : process.env.DB_PASSWORD,
+  database: process.env.DATABASE_PUBLIC_URL || process.env.DATABASE_URL ? undefined : (process.env.DB_NAME || 'activos_greenfield'),
 });
 
 /**

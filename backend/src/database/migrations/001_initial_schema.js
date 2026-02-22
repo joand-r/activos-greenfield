@@ -2,62 +2,48 @@
  * 🗄️ MIGRACIÓN 001: Schema Inicial
  * 
  * Crea la estructura base de la base de datos:
- * - Tablas principales (usuario, categoria, lugar, marca, proveedor, articulo, movimiento)
+ * - Tablas de catálogos (Usuario, Marca, Proveedor, Lugar)
+ * - Tabla padre (Activo)
+ * - Tablas hijas (Equipos_Tecnologicos, Motorizados, Terreno)
+ * - Tabla de Movimientos
  * - Índices para optimización
  * - Funciones PostgreSQL
  * - Datos iniciales (seeds)
  */
 
 export async function up(client) {
-  console.log('📦 Creando tablas principales...\n');
+  console.log('📦 Creando tablas de catálogos...\n');
   
-  // Tabla Usuario
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS usuario (
-      id SERIAL PRIMARY KEY,
-      email VARCHAR(255) UNIQUE NOT NULL,
-      password VARCHAR(255) NOT NULL,
-      nombre VARCHAR(255) NOT NULL,
-      rol VARCHAR(20) NOT NULL CHECK (rol IN ('admin', 'usuario', 'visor')),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  // Tabla Usuario (ya existe, verificar)
+  const usuarioExists = await client.query(`
+    SELECT EXISTS (
+      SELECT FROM information_schema.tables 
+      WHERE table_name = 'usuario'
     );
   `);
-  console.log('✅ Tabla usuario');
-
-  // Tabla Categoria
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS categoria (
-      id SERIAL PRIMARY KEY,
-      nombre VARCHAR(100) UNIQUE NOT NULL,
-      descripcion TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
-  console.log('✅ Tabla categoria');
-
-  // Tabla Lugar
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS lugar (
-      id SERIAL PRIMARY KEY,
-      nombre VARCHAR(255) UNIQUE NOT NULL,
-      iniciales VARCHAR(3) UNIQUE NOT NULL,
-      tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('vivienda', 'oficina', 'almacen')),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
-  console.log('✅ Tabla lugar');
+  
+  if (!usuarioExists.rows[0].exists) {
+    await client.query(`
+      CREATE TABLE usuario (
+        id BIGSERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        nombre VARCHAR(255) NOT NULL,
+        rol VARCHAR(50) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('✅ Tabla usuario creada');
+  } else {
+    console.log('✅ Tabla usuario (ya existe)');
+  }
 
   // Tabla Marca
   await client.query(`
     CREATE TABLE IF NOT EXISTS marca (
-      id SERIAL PRIMARY KEY,
-      nombre VARCHAR(100) UNIQUE NOT NULL,
-      descripcion TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      id BIGSERIAL PRIMARY KEY,
+      nombre VARCHAR(255) NOT NULL,
+      descripcion TEXT
     );
   `);
   console.log('✅ Tabla marca');
@@ -65,118 +51,183 @@ export async function up(client) {
   // Tabla Proveedor
   await client.query(`
     CREATE TABLE IF NOT EXISTS proveedor (
-      id SERIAL PRIMARY KEY,
-      nombre VARCHAR(255) UNIQUE NOT NULL,
-      nit VARCHAR(50) UNIQUE NOT NULL,
-      telefono VARCHAR(20),
-      email VARCHAR(255),
-      direccion TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      id BIGSERIAL PRIMARY KEY,
+      nombre VARCHAR(255) NOT NULL,
+      nit VARCHAR(50) NOT NULL
     );
   `);
   console.log('✅ Tabla proveedor');
 
-  // Tabla Articulo
+  // Tabla Lugar
   await client.query(`
-    CREATE TABLE IF NOT EXISTS articulo (
-      id SERIAL PRIMARY KEY,
-      codigo VARCHAR(50) UNIQUE NOT NULL,
+    CREATE TABLE IF NOT EXISTS lugar (
+      id BIGSERIAL PRIMARY KEY,
       nombre VARCHAR(255) NOT NULL,
-      descripcion TEXT,
-      fecha_adquisicion DATE NOT NULL,
-      serie VARCHAR(100),
-      cantidad INTEGER NOT NULL DEFAULT 1 CHECK (cantidad > 0),
-      precio_unitario DECIMAL(10,2) NOT NULL CHECK (precio_unitario >= 0),
-      estado VARCHAR(20) NOT NULL CHECK (estado IN ('Nuevo', 'Medio Uso', 'Fregado', 'En Reparación', 'Obsoleto', 'Transferido')),
-      constancia VARCHAR(20) NOT NULL CHECK (constancia IN ('Factura', 'Recibo', 'Proforma')),
-      numero_constancia VARCHAR(100),
-      imagen VARCHAR(500),
-      activo BOOLEAN NOT NULL DEFAULT true,
-      articulo_origen_id INTEGER REFERENCES articulo(id) ON DELETE SET NULL,
-      categoria_id INTEGER NOT NULL REFERENCES categoria(id) ON DELETE RESTRICT,
-      lugar_id INTEGER NOT NULL REFERENCES lugar(id) ON DELETE RESTRICT,
-      marca_id INTEGER NOT NULL REFERENCES marca(id) ON DELETE RESTRICT,
-      proveedor_id INTEGER NOT NULL REFERENCES proveedor(id) ON DELETE RESTRICT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      inicial VARCHAR(10),
+      tipo VARCHAR(50)
     );
   `);
-  console.log('✅ Tabla articulo');
+  console.log('✅ Tabla lugar\n');
+
+  // Tabla Padre: Activo
+  console.log('📦 Creando tabla principal (Activo)...\n');
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS activo (
+      id BIGSERIAL PRIMARY KEY,
+      nombre VARCHAR(255) NOT NULL,
+      tipo_activo VARCHAR(50) NOT NULL,
+      codigo VARCHAR(100) UNIQUE NOT NULL,
+      serie VARCHAR(100),
+      imagen VARCHAR(500),
+      estado VARCHAR(50),
+      descripcion TEXT,
+      fecha_adquision DATE,
+      costo_adquision DECIMAL(15, 2),
+      tipo_constancia VARCHAR(100),
+      nro_constancia VARCHAR(100),
+      lugar_id BIGINT,
+      marca_id BIGINT,
+      proveedor_id BIGINT,
+      CONSTRAINT fk_activo_lugar FOREIGN KEY (lugar_id) REFERENCES lugar(id),
+      CONSTRAINT fk_activo_marca FOREIGN KEY (marca_id) REFERENCES marca(id) ON DELETE SET NULL,
+      CONSTRAINT fk_activo_proveedor FOREIGN KEY (proveedor_id) REFERENCES proveedor(id) ON DELETE SET NULL
+    );
+  `);
+  console.log('✅ Tabla activo\n');
+
+  // Tablas Hijas
+  console.log('📦 Creando tablas hijas (datos específicos)...\n');
+  
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS equipos_tecnologicos (
+      activo_id BIGINT PRIMARY KEY,
+      modelo VARCHAR(100),
+      procesador VARCHAR(100),
+      memoria VARCHAR(50),
+      capacidad_disco VARCHAR(50),
+      CONSTRAINT fk_tecnologico_padre FOREIGN KEY (activo_id) REFERENCES activo(id) ON DELETE CASCADE
+    );
+  `);
+  console.log('✅ Tabla equipos_tecnologicos');
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS motorizados (
+      activo_id BIGINT PRIMARY KEY,
+      tipo_vehiculo VARCHAR(100),
+      motor VARCHAR(100),
+      chasis VARCHAR(100),
+      color VARCHAR(50),
+      anho_modelo INT,
+      CONSTRAINT fk_motorizado_padre FOREIGN KEY (activo_id) REFERENCES activo(id) ON DELETE CASCADE
+    );
+  `);
+  console.log('✅ Tabla motorizados');
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS terreno (
+      activo_id BIGINT PRIMARY KEY,
+      folio VARCHAR(100),
+      nro_registro VARCHAR(100),
+      area DECIMAL(15, 2),
+      ubicacion VARCHAR(255),
+      CONSTRAINT fk_terreno_padre FOREIGN KEY (activo_id) REFERENCES activo(id) ON DELETE CASCADE
+    );
+  `);
+  console.log('✅ Tabla terreno\n');
 
   // Tabla Movimiento
+  console.log('📦 Creando tabla de movimientos...\n');
   await client.query(`
     CREATE TABLE IF NOT EXISTS movimiento (
-      id SERIAL PRIMARY KEY,
-      codigo_movimiento VARCHAR(50) UNIQUE NOT NULL,
-      tipo VARCHAR(20) NOT NULL DEFAULT 'Transferencia' CHECK (tipo IN ('Transferencia', 'Ajuste', 'Prestamo')),
-      articulo_id INTEGER NOT NULL REFERENCES articulo(id) ON DELETE CASCADE,
-      articulo_destino_id INTEGER REFERENCES articulo(id) ON DELETE SET NULL,
-      lugar_origen_id INTEGER NOT NULL REFERENCES lugar(id) ON DELETE RESTRICT,
-      lugar_destino_id INTEGER NOT NULL REFERENCES lugar(id) ON DELETE RESTRICT,
-      fecha_movimiento DATE NOT NULL,
+      id BIGSERIAL PRIMARY KEY,
+      codigo_movimiento VARCHAR(100) UNIQUE NOT NULL,
+      fecha_movimiento TIMESTAMP NOT NULL,
       responsable VARCHAR(255) NOT NULL,
-      motivo TEXT NOT NULL,
       observaciones TEXT,
-      estado VARCHAR(20) NOT NULL DEFAULT 'Pendiente' CHECK (estado IN ('Pendiente', 'Completado', 'Cancelado')),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      CONSTRAINT check_lugares_diferentes CHECK (lugar_origen_id != lugar_destino_id)
+      estado VARCHAR(50) NOT NULL,
+      activo_id BIGINT NOT NULL,
+      lugar_origen_id BIGINT,
+      lugar_destino_id BIGINT,
+      CONSTRAINT fk_movimiento_activo FOREIGN KEY (activo_id) REFERENCES activo(id) ON DELETE CASCADE,
+      CONSTRAINT fk_movimiento_origen FOREIGN KEY (lugar_origen_id) REFERENCES lugar(id) ON DELETE SET NULL,
+      CONSTRAINT fk_movimiento_destino FOREIGN KEY (lugar_destino_id) REFERENCES lugar(id) ON DELETE SET NULL
     );
   `);
-  console.log('✅ Tabla movimiento\n');
+  console.log('✅ Tabla movimiento');
+
+  // Tabla Bitácora de Auditoría
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS bitacora_auditoria (
+      id BIGSERIAL PRIMARY KEY,
+      usuario_id BIGINT NOT NULL,
+      accion VARCHAR(20) NOT NULL,
+      tabla_afectada VARCHAR(100) NOT NULL,
+      registro_id BIGINT NOT NULL,
+      datos_anteriores JSONB,
+      datos_nuevos JSONB,
+      fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      ip_usuario VARCHAR(50),
+      CONSTRAINT fk_bitacora_usuario FOREIGN KEY (usuario_id) REFERENCES usuario(id) ON DELETE CASCADE
+    );
+  `);
+  console.log('✅ Tabla bitacora_auditoria\n');
 
   // Crear índices
   console.log('🔍 Creando índices...');
   await client.query(`
-    CREATE INDEX IF NOT EXISTS idx_articulo_codigo ON articulo(codigo);
-    CREATE INDEX IF NOT EXISTS idx_articulo_categoria ON articulo(categoria_id);
-    CREATE INDEX IF NOT EXISTS idx_articulo_lugar ON articulo(lugar_id);
-    CREATE INDEX IF NOT EXISTS idx_articulo_activo ON articulo(activo);
-    CREATE INDEX IF NOT EXISTS idx_articulo_origen ON articulo(articulo_origen_id);
-    CREATE INDEX IF NOT EXISTS idx_movimiento_articulo ON movimiento(articulo_id);
-    CREATE INDEX IF NOT EXISTS idx_movimiento_destino ON movimiento(articulo_destino_id);
     CREATE INDEX IF NOT EXISTS idx_usuario_email ON usuario(email);
+    CREATE INDEX IF NOT EXISTS idx_activo_codigo ON activo(codigo);
+    CREATE INDEX IF NOT EXISTS idx_activo_tipo ON activo(tipo_activo);
+    CREATE INDEX IF NOT EXISTS idx_activo_lugar ON activo(lugar_id);
+    CREATE INDEX IF NOT EXISTS idx_activo_marca ON activo(marca_id);
+    CREATE INDEX IF NOT EXISTS idx_activo_proveedor ON activo(proveedor_id);
+    CREATE INDEX IF NOT EXISTS idx_movimiento_activo ON movimiento(activo_id);
+    CREATE INDEX IF NOT EXISTS idx_movimiento_origen ON movimiento(lugar_origen_id);
+    CREATE INDEX IF NOT EXISTS idx_movimiento_destino ON movimiento(lugar_destino_id);
+    CREATE INDEX IF NOT EXISTS idx_bitacora_usuario ON bitacora_auditoria(usuario_id);
+    CREATE INDEX IF NOT EXISTS idx_bitacora_tabla ON bitacora_auditoria(tabla_afectada);
+    CREATE INDEX IF NOT EXISTS idx_bitacora_registro ON bitacora_auditoria(registro_id);
+    CREATE INDEX IF NOT EXISTS idx_bitacora_fecha ON bitacora_auditoria(fecha);
   `);
   console.log('✅ Índices creados\n');
 
   // Crear funciones
   console.log('⚙️  Creando funciones...');
   await client.query(`
-    CREATE OR REPLACE FUNCTION generar_codigo_articulo(p_lugar_id INTEGER)
-    RETURNS VARCHAR(50) AS $$
+    CREATE OR REPLACE FUNCTION generar_codigo_activo(p_lugar_id BIGINT)
+    RETURNS VARCHAR(100) AS $$
     DECLARE
-        v_iniciales VARCHAR(10);
+        v_inicial VARCHAR(10);
         v_ultimo_numero INTEGER;
-        v_nuevo_codigo VARCHAR(50);
+        v_nuevo_codigo VARCHAR(100);
     BEGIN
-        -- Obtener las iniciales del lugar
-        SELECT iniciales INTO v_iniciales
+        -- Obtener la inicial del lugar
+        SELECT inicial INTO v_inicial
         FROM lugar
         WHERE id = p_lugar_id;
         
-        IF v_iniciales IS NULL THEN
+        IF v_inicial IS NULL THEN
             RAISE EXCEPTION 'Lugar no encontrado con ID: %', p_lugar_id;
         END IF;
         
         -- Obtener el último número usado para este lugar
         SELECT COALESCE(MAX(
             CAST(
-                SUBSTRING(codigo FROM LENGTH(v_iniciales) + 2)
+                SUBSTRING(codigo FROM LENGTH(v_inicial) + 2)
                 AS INTEGER
             )
         ), 0) INTO v_ultimo_numero
-        FROM articulo
-        WHERE codigo LIKE v_iniciales || '-%';
+        FROM activo
+        WHERE codigo LIKE v_inicial || '-%';
         
-        -- Generar el nuevo código
-        v_nuevo_codigo := v_iniciales || '-' || LPAD((v_ultimo_numero + 1)::TEXT, 3, '0');
+        -- Generar el nuevo código (VSP-001, VSP-002, etc.)
+        v_nuevo_codigo := v_inicial || '-' || LPAD((v_ultimo_numero + 1)::TEXT, 3, '0');
         
         RETURN v_nuevo_codigo;
     END;
     $$ LANGUAGE plpgsql;
   `);
-  console.log('✅ Función generar_codigo_articulo\n');
+  console.log('✅ Función generar_codigo_activo\n');
 
   // Insertar datos iniciales
   console.log('🌱 Insertando datos iniciales...');
@@ -200,14 +251,17 @@ export async function down(client) {
   console.log('⚠️  Revirtiendo migración 001...\n');
   
   // Eliminar en orden inverso por las dependencias
+  await client.query('DROP TABLE IF EXISTS bitacora_auditoria CASCADE');
   await client.query('DROP TABLE IF EXISTS movimiento CASCADE');
-  await client.query('DROP TABLE IF EXISTS articulo CASCADE');
+  await client.query('DROP TABLE IF EXISTS equipos_tecnologicos CASCADE');
+  await client.query('DROP TABLE IF EXISTS motorizados CASCADE');
+  await client.query('DROP TABLE IF EXISTS terreno CASCADE');
+  await client.query('DROP TABLE IF EXISTS activo CASCADE');
   await client.query('DROP TABLE IF EXISTS proveedor CASCADE');
   await client.query('DROP TABLE IF EXISTS marca CASCADE');
   await client.query('DROP TABLE IF EXISTS lugar CASCADE');
-  await client.query('DROP TABLE IF EXISTS categoria CASCADE');
   await client.query('DROP TABLE IF EXISTS usuario CASCADE');
-  await client.query('DROP FUNCTION IF EXISTS generar_codigo_articulo(INTEGER)');
+  await client.query('DROP FUNCTION IF EXISTS generar_codigo_activo(BIGINT)');
   
   console.log('✅ Tablas y funciones eliminadas\n');
 }

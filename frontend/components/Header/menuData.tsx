@@ -52,20 +52,65 @@ export const adminMenuData: Menu[] = [
   },
   {
     id: 2,
-    title: "Artículo",
+    title: "Activo",
     newTab: false,
     submenu: [
       {
         id: 21,
-        title: "Registrar Artículo",
-        path: "/admin/articulos/registrar",
+        title: "Artículo",
         newTab: false,
+        submenu: [
+          {
+            id: 211,
+            title: "Ver Artículos",
+            path: "/admin/articulos/lista",
+            newTab: false,
+          },
+          {
+            id: 212,
+            title: "Registrar Artículo",
+            path: "/admin/articulos/registrar",
+            newTab: false,
+          },
+        ],
       },
       {
         id: 22,
-        title: "Ver Artículos",
-        path: "/admin/articulos/lista",
+        title: "Tecnología",
         newTab: false,
+        submenu: [
+          {
+            id: 221,
+            title: "Ver Tecnología",
+            path: "/admin/tecnologia/lista",
+            newTab: false,
+          },
+          {
+            id: 222,
+            title: "Registrar Tecnología",
+            path: "/admin/tecnologia/registrar",
+            newTab: false,
+          },
+        ],
+      },
+      {
+        id: 23,
+        title: "Vehículo",
+        newTab: false,
+        submenu: [
+          {
+            id: 231,
+            title: "Ver Vehículos",
+            path: "/admin/vehiculos/lista",
+            newTab: false,
+          },
+          {
+            id: 232,
+            title: "Registrar Vehículo",
+            path: "/admin/vehiculos/registrar",
+            newTab: false,
+          },
+        ],
       },
     ],
   },
@@ -76,15 +121,60 @@ export const adminMenuData: Menu[] = [
     submenu: [
       {
         id: 31,
-        title: "Transferir Activo",
-        path: "/admin/detalle/registrar",
+        title: "Artículo",
         newTab: false,
+        submenu: [
+          {
+            id: 311,
+            title: "Ver Movimientos",
+            path: "/admin/detalle/lista",
+            newTab: false,
+          },
+          {
+            id: 312,
+            title: "Transferir Artículo",
+            path: "/admin/detalle/registrar",
+            newTab: false,
+          },
+        ],
       },
       {
         id: 32,
-        title: "Ver Movimientos",
-        path: "/admin/detalle/lista",
+        title: "Tecnología",
         newTab: false,
+        submenu: [
+          {
+            id: 321,
+            title: "Ver Movimientos",
+            path: "/admin/movimientos/tecnologia/lista",
+            newTab: false,
+          },
+          {
+            id: 322,
+            title: "Transferir Tecnología",
+            path: "/admin/movimientos/tecnologia/registrar",
+            newTab: false,
+          },
+        ],
+      },
+      {
+        id: 33,
+        title: "Vehículo",
+        newTab: false,
+        submenu: [
+          {
+            id: 331,
+            title: "Ver Movimientos",
+            path: "/admin/movimientos/vehiculos/lista",
+            newTab: false,
+          },
+          {
+            id: 332,
+            title: "Transferir Vehículo",
+            path: "/admin/movimientos/vehiculos/registrar",
+            newTab: false,
+          },
+        ],
       },
     ],
   },

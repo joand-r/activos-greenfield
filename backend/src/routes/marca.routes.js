@@ -1,38 +1,25 @@
 import express from 'express';
-import {
-  getMarcas,
-  getMarcaById,
-  createMarca,
-  updateMarca,
-  deleteMarca
+import { 
+  obtenerMarcas,
+  obtenerMarcaPorId,
+  crearMarca,
+  actualizarMarca,
+  eliminarMarca
 } from '../controllers/marca.controller.js';
-import { verifyToken, verifyAdmin } from '../middlewares/auth.middleware.js';
+import { authenticateToken } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-// @route   GET /api/marcas
-// @desc    Obtener todas las marcas
-// @access  Public
-router.get('/', getMarcas);
+// Todas las rutas requieren autenticación
+router.use(authenticateToken);
 
-// @route   GET /api/marcas/:id
-// @desc    Obtener una marca por ID
-// @access  Public
-router.get('/:id', getMarcaById);
+// Rutas públicas (lectura)
+router.get('/', obtenerMarcas);
+router.get('/:id', obtenerMarcaPorId);
 
-// @route   POST /api/marcas
-// @desc    Crear nueva marca
-// @access  Private/Admin
-router.post('/', verifyToken, verifyAdmin, createMarca);
-
-// @route   PUT /api/marcas/:id
-// @desc    Actualizar marca
-// @access  Private/Admin
-router.put('/:id', verifyToken, verifyAdmin, updateMarca);
-
-// @route   DELETE /api/marcas/:id
-// @desc    Eliminar marca
-// @access  Private/Admin
-router.delete('/:id', verifyToken, verifyAdmin, deleteMarca);
+// Rutas protegidas (escritura)
+router.post('/', crearMarca);
+router.put('/:id', actualizarMarca);
+router.delete('/:id', eliminarMarca);
 
 export default router;
