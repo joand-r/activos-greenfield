@@ -203,9 +203,9 @@ const ListaLugaresPage = () => {
                         <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${
-                              lugar.tipo === "vivienda"
+                              lugar.tipo === "VIVIENDA"
                                 ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                                : lugar.tipo === "oficina"
+                                : lugar.tipo === "OFICINA"
                                 ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
                                 : "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
                             }`}
