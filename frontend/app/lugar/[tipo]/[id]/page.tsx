@@ -237,7 +237,7 @@ export default function LugarDetallesPage() {
         </div>
         
         <div class="lugar-info">
-          <h2>${lugar?.nombre} (${lugar?.iniciales})</h2>
+          <h2>${lugar?.nombre} (${lugar?.inicial})</h2>
           <p>Tipo: ${lugar?.tipo?.charAt(0).toUpperCase()}${lugar?.tipo?.slice(1)} | Total de artículos: ${totalArticulos}</p>
         </div>
         
@@ -347,7 +347,7 @@ export default function LugarDetallesPage() {
     <>
       <Breadcrumb
         pageName={lugar ? `${lugar.nombre}` : "Lugar"}
-        description={`${lugar?.tipo?.charAt(0).toUpperCase()}${lugar?.tipo?.slice(1)} • ${lugar?.iniciales}`}
+        description={`${lugar?.tipo?.charAt(0).toUpperCase()}${lugar?.tipo?.slice(1)} • ${lugar?.inicial}`}
       />
 
       <section className="pb-[120px] pt-[120px]">
@@ -360,7 +360,7 @@ export default function LugarDetallesPage() {
                   {lugar?.nombre}
                 </h1>
                 <p className="text-body-color">
-                  <span className="font-semibold">{lugar?.iniciales}</span> • 
+                  <span className="font-semibold">{lugar?.inicial}</span> • 
                   <span className="capitalize"> {lugar?.tipo}</span>
                 </p>
               </div>

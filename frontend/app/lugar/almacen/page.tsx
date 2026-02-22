@@ -42,7 +42,7 @@ const AlmacenPage = () => {
   return (
     <>
       <Breadcrumb
-        pageName={lugar ? `${lugar.nombre} (${lugar.iniciales})` : "Almacén"}
+        pageName={lugar ? `${lugar.nombre} (${lugar.inicial})` : "Almacén"}
         description="Activos para operaciones de almacenamiento"
       />
 
@@ -52,7 +52,7 @@ const AlmacenPage = () => {
             <div className="w-full px-4">
               <div className="mx-auto mb-12 max-w-[510px] text-center">
                 <h2 className="mb-4 text-3xl font-bold !leading-tight text-black dark:text-white sm:text-4xl md:text-[45px]">
-                  {lugar ? `${lugar.nombre} (${lugar.iniciales})` : "Lugar: Almacén"}
+                  {lugar ? `${lugar.nombre} (${lugar.inicial})` : "Lugar: Almacén"}
                 </h2>
                 <p className="text-base !leading-relaxed text-body-color md:text-lg">
                   Equipamiento especializado para almacenes y bodegas

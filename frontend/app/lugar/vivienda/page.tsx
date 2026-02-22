@@ -42,7 +42,7 @@ const ViviendaPage = () => {
   return (
     <>
       <Breadcrumb
-        pageName={lugar ? `${lugar.nombre} (${lugar.iniciales})` : "Vivienda"}
+        pageName={lugar ? `${lugar.nombre} (${lugar.inicial})` : "Vivienda"}
         description="Activos disponibles para viviendas"
       />
 
@@ -52,7 +52,7 @@ const ViviendaPage = () => {
             <div className="w-full px-4">
               <div className="mx-auto mb-12 max-w-[510px] text-center">
                 <h2 className="mb-4 text-3xl font-bold !leading-tight text-black dark:text-white sm:text-4xl md:text-[45px]">
-                  {lugar ? `${lugar.nombre} (${lugar.iniciales})` : "Lugar: Vivienda"}
+                  {lugar ? `${lugar.nombre} (${lugar.inicial})` : "Lugar: Vivienda"}
                 </h2>
                 <p className="text-base !leading-relaxed text-body-color md:text-lg">
                   Activos y equipamiento para espacios residenciales
