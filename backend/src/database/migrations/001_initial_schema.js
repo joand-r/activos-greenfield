@@ -58,13 +58,63 @@ export async function up(client) {
   `);
   console.log('✅ Tabla proveedor');
 
-  // Tabla Lugar
+  console.log('✅ Tabla lugar (se creará después de los ENUMs)\n');
+
+  // Crear ENUMs
+  console.log('📦 Creando tipos ENUM...\n');
+  
+  await client.query(`
+    DO $$ BEGIN
+      CREATE TYPE EstadoActivo AS ENUM (
+        'NUEVO',
+        'USADO',
+        'DISPONIBLE',
+        'DANADO',
+        'DONADO',
+        'VENDIDO',
+        'TRANSFERIR'
+      );
+    EXCEPTION
+      WHEN duplicate_object THEN null;
+    END $$;
+  `);
+  console.log('✅ ENUM EstadoActivo');
+
+  await client.query(`
+    DO $$ BEGIN
+      CREATE TYPE TipoConstancia AS ENUM (
+        'FACTURA',
+        'PROFORMA',
+        'RECIBO'
+      );
+    EXCEPTION
+      WHEN duplicate_object THEN null;
+    END $$;
+  `);
+  console.log('✅ ENUM TipoConstancia');
+
+  await client.query(`
+    DO $$ BEGIN
+      CREATE TYPE TipoLugar AS ENUM (
+        'VIVIENDA',
+        'OFICINA',
+        'ALMACEN',
+        'CENTER',
+        'PROPIEDAD'
+      );
+    EXCEPTION
+      WHEN duplicate_object THEN null;
+    END $$;
+  `);
+  console.log('✅ ENUM TipoLugar\n');
+
+  // Tabla Lugar (después de crear ENUM TipoLugar)
   await client.query(`
     CREATE TABLE IF NOT EXISTS lugar (
       id BIGSERIAL PRIMARY KEY,
       nombre VARCHAR(255) NOT NULL,
       inicial VARCHAR(10),
-      tipo VARCHAR(50)
+      tipo TipoLugar NOT NULL
     );
   `);
   console.log('✅ Tabla lugar\n');
@@ -79,11 +129,11 @@ export async function up(client) {
       codigo VARCHAR(100) UNIQUE NOT NULL,
       serie VARCHAR(100),
       imagen VARCHAR(500),
-      estado VARCHAR(50),
+      estado EstadoActivo DEFAULT 'DISPONIBLE',
       descripcion TEXT,
       fecha_adquision DATE,
       costo_adquision DECIMAL(15, 2),
-      tipo_constancia VARCHAR(100),
+      tipo_constancia TipoConstancia,
       nro_constancia VARCHAR(100),
       lugar_id BIGINT,
       marca_id BIGINT,
@@ -144,13 +194,15 @@ export async function up(client) {
       fecha_movimiento TIMESTAMP NOT NULL,
       responsable VARCHAR(255) NOT NULL,
       observaciones TEXT,
-      estado VARCHAR(50) NOT NULL,
+      estado EstadoActivo NOT NULL DEFAULT 'DISPONIBLE',
       activo_id BIGINT NOT NULL,
       lugar_origen_id BIGINT,
       lugar_destino_id BIGINT,
+      nuevo_activo_id BIGINT,
       CONSTRAINT fk_movimiento_activo FOREIGN KEY (activo_id) REFERENCES activo(id) ON DELETE CASCADE,
       CONSTRAINT fk_movimiento_origen FOREIGN KEY (lugar_origen_id) REFERENCES lugar(id) ON DELETE SET NULL,
-      CONSTRAINT fk_movimiento_destino FOREIGN KEY (lugar_destino_id) REFERENCES lugar(id) ON DELETE SET NULL
+      CONSTRAINT fk_movimiento_destino FOREIGN KEY (lugar_destino_id) REFERENCES lugar(id) ON DELETE SET NULL,
+      CONSTRAINT fk_movimiento_nuevo_activo FOREIGN KEY (nuevo_activo_id) REFERENCES activo(id) ON DELETE SET NULL
     );
   `);
   console.log('✅ Tabla movimiento');
@@ -263,5 +315,10 @@ export async function down(client) {
   await client.query('DROP TABLE IF EXISTS usuario CASCADE');
   await client.query('DROP FUNCTION IF EXISTS generar_codigo_activo(BIGINT)');
   
-  console.log('✅ Tablas y funciones eliminadas\n');
+  // Eliminar ENUMs
+  await client.query('DROP TYPE IF EXISTS EstadoActivo');
+  await client.query('DROP TYPE IF EXISTS TipoConstancia');
+  await client.query('DROP TYPE IF EXISTS TipoLugar');
+  
+  console.log('✅ Tablas, funciones y tipos eliminados\n');
 }

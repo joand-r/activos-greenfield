@@ -32,11 +32,18 @@ const RegistrarMarcaPage = () => {
     
     setError("");
     setSuccess("");
+    
+    // Validación básica
+    if (!formData.nombre || formData.nombre.trim() === "") {
+      setError("El nombre de la marca es requerido");
+      return;
+    }
+    
     showLoading();
     
     try {
       const nuevaMarca = await marcaService.create(formData);
-      setSuccess(`Marca registrada exitosamente: ${nuevaMarca.nombre}`);
+      setSuccess(`Marca registrada exitosamente: ${nuevaMarca?.nombre || formData.nombre}`);
       
       setFormData({
         nombre: "",

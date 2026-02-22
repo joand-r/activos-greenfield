@@ -79,10 +79,10 @@ const Footer = () => {
                 <ul>
                   <li>
                     <a
-                      href="/articulo"
+                      href="/admin/activos/lista"
                       className="dark:text-body-color-dark mb-4 inline-block text-base text-body-color duration-300 hover:text-primary dark:hover:text-primary"
                     >
-                      Buscar Artículo
+                      Ver Activos
                     </a>
                   </li>
                   <li>

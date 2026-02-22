@@ -29,13 +29,19 @@ const menuData: Menu[] = [
   },
   {
     id: 3,
-    title: "Artículo",
+    title: "Activos",
     newTab: false,
     submenu: [
       {
         id: 31,
-        title: "Buscar Artículo",
-        path: "/articulo",
+        title: "Lista de Activos",
+        path: "/admin/activos/lista",
+        newTab: false,
+      },
+      {
+        id: 32,
+        title: "Registrar Activo",
+        path: "/admin/activos/registrar",
         newTab: false,
       },
     ],
@@ -51,157 +57,10 @@ export const adminMenuData: Menu[] = [
     newTab: false,
   },
   {
-    id: 2,
-    title: "Activo",
-    newTab: false,
-    submenu: [
-      {
-        id: 21,
-        title: "Artículo",
-        newTab: false,
-        submenu: [
-          {
-            id: 211,
-            title: "Ver Artículos",
-            path: "/admin/articulos/lista",
-            newTab: false,
-          },
-          {
-            id: 212,
-            title: "Registrar Artículo",
-            path: "/admin/articulos/registrar",
-            newTab: false,
-          },
-        ],
-      },
-      {
-        id: 22,
-        title: "Tecnología",
-        newTab: false,
-        submenu: [
-          {
-            id: 221,
-            title: "Ver Tecnología",
-            path: "/admin/tecnologia/lista",
-            newTab: false,
-          },
-          {
-            id: 222,
-            title: "Registrar Tecnología",
-            path: "/admin/tecnologia/registrar",
-            newTab: false,
-          },
-        ],
-      },
-      {
-        id: 23,
-        title: "Vehículo",
-        newTab: false,
-        submenu: [
-          {
-            id: 231,
-            title: "Ver Vehículos",
-            path: "/admin/vehiculos/lista",
-            newTab: false,
-          },
-          {
-            id: 232,
-            title: "Registrar Vehículo",
-            path: "/admin/vehiculos/registrar",
-            newTab: false,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 3,
-    title: "Movimientos",
-    newTab: false,
-    submenu: [
-      {
-        id: 31,
-        title: "Artículo",
-        newTab: false,
-        submenu: [
-          {
-            id: 311,
-            title: "Ver Movimientos",
-            path: "/admin/detalle/lista",
-            newTab: false,
-          },
-          {
-            id: 312,
-            title: "Transferir Artículo",
-            path: "/admin/detalle/registrar",
-            newTab: false,
-          },
-        ],
-      },
-      {
-        id: 32,
-        title: "Tecnología",
-        newTab: false,
-        submenu: [
-          {
-            id: 321,
-            title: "Ver Movimientos",
-            path: "/admin/movimientos/tecnologia/lista",
-            newTab: false,
-          },
-          {
-            id: 322,
-            title: "Transferir Tecnología",
-            path: "/admin/movimientos/tecnologia/registrar",
-            newTab: false,
-          },
-        ],
-      },
-      {
-        id: 33,
-        title: "Vehículo",
-        newTab: false,
-        submenu: [
-          {
-            id: 331,
-            title: "Ver Movimientos",
-            path: "/admin/movimientos/vehiculos/lista",
-            newTab: false,
-          },
-          {
-            id: 332,
-            title: "Transferir Vehículo",
-            path: "/admin/movimientos/vehiculos/registrar",
-            newTab: false,
-          },
-        ],
-      },
-    ],
-  },
-  {
     id: 4,
     title: "Administración",
     newTab: false,
     submenu: [
-      {
-        id: 41,
-        title: "Categoría",
-        newTab: false,
-        submenu: [
-          {
-            id: 410,
-            title: "Registrar Categoría",
-            path: "/admin/categorias/registrar",
-            newTab: false,
-          },
-          {
-            id: 411,
-            title: "Ver Categorías",
-            path: "/admin/categorias/lista",
-            newTab: false,
-          },
-        ],
-      },
       {
         id: 42,
         title: "Lugar",
@@ -258,6 +117,44 @@ export const adminMenuData: Menu[] = [
             newTab: false,
           },
         ],
+      },
+    ],
+  },
+  {
+    id: 2,
+    title: "Activos",
+    newTab: false,
+    submenu: [
+      {
+        id: 21,
+        title: "Lista de Tipos de Activos",
+        path: "/admin/activos/lista",
+        newTab: false,
+      },
+      {
+        id: 22,
+        title: "Registrar Activo",
+        path: "/admin/activos/registrar",
+        newTab: false,
+      },
+    ],
+  },
+  {
+    id: 3,
+    title: "Movimientos",
+    newTab: false,
+    submenu: [
+      {
+        id: 31,
+        title: "Registrar Movimiento",
+        path: "/admin/movimientos/registrar",
+        newTab: false,
+      },
+      {
+        id: 32,
+        title: "Ver Movimientos",
+        path: "/admin/movimientos/lista",
+        newTab: false,
       },
     ],
   },

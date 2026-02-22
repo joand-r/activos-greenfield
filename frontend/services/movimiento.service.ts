@@ -10,11 +10,14 @@ export interface Movimiento {
   responsable: string;
   observaciones?: string | null;
   estado: string;
+  nuevo_activo_id?: number | null;
   // Datos relacionados (cuando se obtiene con JOIN)
   activo_nombre?: string;
   activo_codigo?: string;
   lugar_origen_nombre?: string;
   lugar_destino_nombre?: string;
+  nuevo_activo_codigo?: string;
+  nuevo_activo_nombre?: string;
 }
 
 export interface CrearMovimientoDTO {

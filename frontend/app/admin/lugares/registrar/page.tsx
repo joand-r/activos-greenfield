@@ -3,7 +3,7 @@
 import Breadcrumb from "@/components/Common/Breadcrumb";
 import { useState, useEffect } from "react";
 import { useLoading } from "@/contexts/LoadingContext";
-import { lugarService } from "@/services/lugar.service";
+import { lugarService, TipoLugar } from "@/services/lugar.service";
 
 const RegistrarLugarPage = () => {
   const { showLoading, hideLoading } = useLoading();
@@ -14,17 +14,19 @@ const RegistrarLugarPage = () => {
 
   const [formData, setFormData] = useState({
     nombre: "",
-    tipo: "",
-    iniciales: "",
+    tipo: "" as TipoLugar | "",
+    inicial: "",
   });
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const tiposLugar = [
-    { id: "vivienda", nombre: "Vivienda" },
-    { id: "oficina", nombre: "Oficina" },
-    { id: "almacen", nombre: "Almacén" },
+  const tiposLugar: {id: TipoLugar, nombre: string}[] = [
+    { id: "VIVIENDA", nombre: "Vivienda" },
+    { id: "OFICINA", nombre: "Oficina" },
+    { id: "ALMACEN", nombre: "Almacén" },
+    { id: "CENTER", nombre: "Center" },
+    { id: "PROPIEDAD", nombre: "Propiedad" },
   ];
 
   const handleChange = (
@@ -33,7 +35,7 @@ const RegistrarLugarPage = () => {
     const { name, value } = e.target;
     
     // Convertir iniciales a mayúsculas y limitar a 3 caracteres
-    if (name === "iniciales") {
+    if (name === "inicial") {
       const upper = value.toUpperCase().slice(0, 3);
       setFormData((prev) => ({
         ...prev,
@@ -52,21 +54,36 @@ const RegistrarLugarPage = () => {
     
     setError("");
     setSuccess("");
-    showLoading();
     
-    try {
-      if (formData.iniciales.length !== 3) {
-        setError("Las iniciales deben tener exactamente 3 caracteres");
-        return;
-      }
+    // Validaciones
+    if (!formData.nombre || formData.nombre.trim() === "") {
+      setError("El nombre del lugar es requerido");
+      hideLoading();
+      return;
+    }
+    
+    if (formData.inicial.length !== 3) {
+      setError("Las iniciales deben tener exactamente 3 caracteres");
+      hideLoading();
+      return;
+    }
+    
+    if (!formData.tipo || formData.tipo.trim() === "") {
+      setError("El tipo de lugar es requerido");
+      hideLoading();
+      return;
+    }
+    
+    showLoading();
 
+    try {
       const nuevoLugar = await lugarService.create(formData);
-      setSuccess(`Lugar registrado exitosamente: ${nuevoLugar.nombre} (${nuevoLugar.iniciales})`);
+      setSuccess(`Lugar registrado exitosamente: ${nuevoLugar?.nombre || formData.nombre} (${nuevoLugar?.inicial || formData.inicial})`);
       
       setFormData({
         nombre: "",
         tipo: "",
-        iniciales: "",
+        inicial: "",
       });
     } catch (error: any) {
       console.error("Error al registrar lugar:", error);
@@ -126,16 +143,16 @@ const RegistrarLugarPage = () => {
 
                   <div className="mb-6">
                     <label
-                      htmlFor="iniciales"
+                      htmlFor="inicial"
                       className="mb-3 block text-sm font-medium text-dark dark:text-white"
                     >
                       Iniciales (3 caracteres) <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
-                      name="iniciales"
-                      id="iniciales"
-                      value={formData.iniciales}
+                      name="inicial"
+                      id="inicial"
+                      value={formData.inicial}
                       onChange={handleChange}
                       placeholder="VSP"
                       required
@@ -164,7 +181,7 @@ const RegistrarLugarPage = () => {
                       className="border-stroke dark:text-body-color-dark dark:shadow-two w-full rounded-sm border bg-[#f8f8f8] px-6 py-3 text-base text-body-color outline-none transition-all duration-300 focus:border-primary dark:border-transparent dark:bg-[#2C303B] dark:focus:border-primary dark:focus:shadow-none"
                     >
                       <option value="">Seleccione un tipo</option>
-                      {tiposLugar.map((tipo) => (
+                      {(tiposLugar || []).map((tipo) => (
                         <option key={tipo.id} value={tipo.id}>
                           {tipo.nombre}
                         </option>

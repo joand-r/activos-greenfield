@@ -30,10 +30,11 @@ const ListaLugaresPage = () => {
     showLoading();
     try {
       const data = await lugarService.getAll();
-      setLugares(data);
+      setLugares(data || []);
     } catch (error: any) {
       console.error("Error al cargar lugares:", error);
       setError(error.message || "Error al cargar los lugares");
+      setLugares([]);
     } finally {
       hideLoading();
     }
@@ -47,7 +48,7 @@ const ListaLugaresPage = () => {
     setLugarSeleccionado(lugar);
     setDatosEdicion({
       nombre: lugar.nombre,
-      iniciales: lugar.iniciales,
+      inicial: lugar.inicial,
       tipo: lugar.tipo
     });
     setModalAbierto(true);
@@ -76,12 +77,12 @@ const ListaLugaresPage = () => {
     }
   };
 
-  const lugaresFiltrados = lugares.filter((lugar) => {
+  const lugaresFiltrados = (lugares || []).filter((lugar) => {
     const coincideTipo = filtroTipo === "" || lugar.tipo === filtroTipo;
     const coincideBusqueda =
       busqueda === "" ||
-      lugar.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-      lugar.iniciales.toLowerCase().includes(busqueda.toLowerCase());
+      lugar?.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
+      lugar?.inicial?.toLowerCase().includes(busqueda.toLowerCase());
     return coincideTipo && coincideBusqueda;
   });
 
@@ -140,9 +141,11 @@ const ListaLugaresPage = () => {
                   className="border-stroke dark:text-white dark:shadow-two w-full rounded-sm border bg-[#f8f8f8] px-6 py-3 text-base text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary"
                 >
                   <option value="">Todos</option>
-                  <option value="vivienda">Vivienda</option>
-                  <option value="oficina">Oficina</option>
-                  <option value="almacen">Almacén</option>
+                  <option value="VIVIENDA">Vivienda</option>
+                  <option value="OFICINA">Oficina</option>
+                  <option value="ALMACEN">Almacén</option>
+                  <option value="CENTER">Center</option>
+                  <option value="PROPIEDAD">Propiedad</option>
                 </select>
               </div>
             </div>
@@ -191,7 +194,7 @@ const ListaLugaresPage = () => {
                         </td>
                         <td className="px-6 py-4 text-sm">
                           <span className="inline-flex rounded-full bg-primary bg-opacity-10 px-3 py-1 font-medium text-primary">
-                            {lugar.iniciales}
+                            {lugar.inicial}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm font-medium text-black dark:text-white">

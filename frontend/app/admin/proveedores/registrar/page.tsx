@@ -32,11 +32,23 @@ const RegistrarProveedorPage = () => {
     
     setError("");
     setSuccess("");
+    
+    // Validaciones básicas
+    if (!formData.nombre || formData.nombre.trim() === "") {
+      setError("El nombre del proveedor es requerido");
+      return;
+    }
+    
+    if (!formData.nit || formData.nit.trim() === "") {
+      setError("El NIT es requerido");
+      return;
+    }
+    
     showLoading();
     
     try {
       const nuevoProveedor = await proveedorService.create(formData);
-      setSuccess(`Proveedor registrado exitosamente: ${nuevoProveedor.nombre} (NIT: ${nuevoProveedor.nit})`);
+      setSuccess(`Proveedor registrado exitosamente: ${nuevoProveedor?.nombre || formData.nombre} (NIT: ${nuevoProveedor?.nit || formData.nit})`);
       
       setFormData({
         nombre: "",

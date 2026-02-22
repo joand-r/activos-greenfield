@@ -59,6 +59,81 @@ async function recordMigration(client, version) {
   `, [version]);
 }
 
+// Eliminar registro de migración
+async function removeMigration(client, version) {
+  await client.query(`
+    DELETE FROM schema_migrations WHERE version = $1
+  `, [version]);
+}
+
+// Revertir última migración
+async function rollbackMigration() {
+  const client = await pool.connect();
+  
+  try {
+    console.log('🔄 Sistema de Migraciones - Rollback\n');
+    console.log(`📍 Entorno: ${process.env.NODE_ENV || 'development'}\n`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    
+    // Crear tabla de tracking si no existe
+    await createMigrationsTable(client);
+    
+    // Obtener migraciones ejecutadas
+    const executedMigrations = await getExecutedMigrations(client);
+    
+    if (executedMigrations.length === 0) {
+      console.log('⚠️  No hay migraciones para revertir.\n');
+      return;
+    }
+    
+    // Obtener la última migración
+    const lastMigration = executedMigrations[executedMigrations.length - 1];
+    console.log(`⚠️  Revirtiendo migración: ${lastMigration}\n`);
+    
+    const migrationsDir = path.join(__dirname, 'migrations');
+    const migrationFile = path.join(migrationsDir, `${lastMigration}.js`);
+    
+    if (!fs.existsSync(migrationFile)) {
+      throw new Error(`Archivo de migración no encontrado: ${lastMigration}.js`);
+    }
+    
+    try {
+      // Iniciar transacción
+      await client.query('BEGIN');
+      
+      // Importar y ejecutar down
+      const migrationModule = await import(`file:///${migrationFile}`);
+      
+      if (!migrationModule.down) {
+        throw new Error(`La migración ${lastMigration} no tiene función down()`);
+      }
+      
+      await migrationModule.down(client);
+      
+      // Eliminar registro de migración
+      await removeMigration(client, lastMigration);
+      
+      // Commit
+      await client.query('COMMIT');
+      
+      console.log(`\n✅ ${lastMigration} revertida exitosamente\n`);
+      
+    } catch (error) {
+      // Rollback en caso de error
+      await client.query('ROLLBACK');
+      console.error(`\n❌ Error al revertir ${lastMigration}:`, error.message);
+      throw error;
+    }
+    
+  } catch (error) {
+    console.error('\n❌ Error en el proceso de rollback:', error.message);
+    throw error;
+  } finally {
+    client.release();
+    await pool.end();
+  }
+}
+
 // Obtener archivos de migración pendientes
 async function getPendingMigrations(executedMigrations) {
   const migrationsDir = path.join(__dirname, 'migrations');
@@ -155,12 +230,26 @@ async function runMigrations() {
 }
 
 // Ejecutar
-runMigrations()
-  .then(() => {
-    console.log('✅ Proceso completado exitosamente\n');
-    process.exit(0);
-  })
-  .catch((error) => {
-    console.error('\n❌ Proceso fallido:', error.message);
-    process.exit(1);
-  });
+const command = process.argv[2];
+
+if (command === 'down') {
+  rollbackMigration()
+    .then(() => {
+      console.log('✅ Proceso completado exitosamente\n');
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('\n❌ Proceso fallido:', error.message);
+      process.exit(1);
+    });
+} else {
+  runMigrations()
+    .then(() => {
+      console.log('✅ Proceso completado exitosamente\n');
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('\n❌ Proceso fallido:', error.message);
+      process.exit(1);
+    });
+}

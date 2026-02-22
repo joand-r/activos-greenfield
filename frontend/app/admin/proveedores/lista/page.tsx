@@ -29,10 +29,11 @@ const ListaProveedoresPage = () => {
     showLoading();
     try {
       const data = await proveedorService.getAll();
-      setProveedores(data);
+      setProveedores(data || []);
     } catch (error: any) {
       console.error("Error al cargar proveedores:", error);
       setError(error.message || "Error al cargar los proveedores");
+      setProveedores([]);
     } finally {
       hideLoading();
     }
@@ -74,9 +75,9 @@ const ListaProveedoresPage = () => {
     }
   };
 
-  const proveedoresFiltrados = proveedores.filter((proveedor) =>
-    proveedor.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-    proveedor.nit.includes(busqueda)
+  const proveedoresFiltrados = (proveedores || []).filter((proveedor) =>
+    proveedor?.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
+    proveedor?.nit?.includes(busqueda)
   );
 
   return (

@@ -1,14 +1,27 @@
 import api from '../lib/api';
 
+export type TipoLugar = 'VIVIENDA' | 'OFICINA' | 'ALMACEN' | 'CENTER' | 'PROPIEDAD';
+
 export interface Lugar {
   id: number;
   nombre: string;
   inicial: string;
-  tipo?: string | null;
+  tipo: TipoLugar;
 }
 
+export const getNombreTipoLugar = (tipo: TipoLugar): string => {
+  const nombres: Record<TipoLugar, string> = {
+    VIVIENDA: 'Vivienda',
+    OFICINA: 'Oficina',
+    ALMACEN: 'Almacén',
+    CENTER: 'Center',
+    PROPIEDAD: 'Propiedad',
+  };
+  return nombres[tipo] || tipo;
+};
+
 export const lugarService = {
-  getAll: async (tipo?: string): Promise<Lugar[]> => {
+  getAll: async (tipo?: TipoLugar): Promise<Lugar[]> => {
     const params = tipo ? { tipo } : {};
     const response = await api.get('/lugares', { params });
     return response.data;

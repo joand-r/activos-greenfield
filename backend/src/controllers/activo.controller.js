@@ -10,7 +10,9 @@ import { registrarAuditoria } from '../utils/auditoria.js';
 // Obtener todos los activos con sus datos específicos
 export const obtenerActivos = async (req, res) => {
   try {
-    const { tipo_activo, lugar_id } = req.query;
+    // vista=servicio (default): excluye bajas | vista=bajas: solo bajas | vista=todos: todos
+    const { tipo_activo, lugar_id, vista } = req.query;
+    const estadosBaja = ['TRANSFERIR', 'VENDIDO', 'DONADO', 'DANADO'];
     
     let query = `
       SELECT 
@@ -28,6 +30,16 @@ export const obtenerActivos = async (req, res) => {
     
     const params = [];
     let paramCount = 1;
+
+    // Filtrar por vista
+    if (!vista || vista === 'servicio') {
+      query += ` AND a.estado NOT IN ('TRANSFERIR','VENDIDO','DONADO','DANADO')`;
+    } else if (vista === 'bajas') {
+      query += ` AND a.estado IN ('VENDIDO','DONADO','DANADO')`;
+    } else if (vista === 'transferidos') {
+      query += ` AND a.estado = 'TRANSFERIR'`;
+    }
+    // vista=todos → no filtra por estado
     
     if (tipo_activo) {
       query += ` AND a.tipo_activo = $${paramCount}`;
@@ -412,5 +424,26 @@ export const eliminarActivo = async (req, res) => {
     res.status(500).json({ error: 'Error al eliminar activo' });
   } finally {
     client.release();
+  }
+};
+
+// Obtener el próximo código que se generaría para un lugar
+export const obtenerProximoCodigo = async (req, res) => {
+  try {
+    const { lugar_id } = req.params;
+    
+    if (!lugar_id) {
+      return res.status(400).json({ error: 'lugar_id es requerido' });
+    }
+
+    const result = await pool.query(
+      'SELECT generar_codigo_activo($1) as codigo',
+      [lugar_id]
+    );
+
+    res.json({ codigo: result.rows[0].codigo });
+  } catch (error) {
+    console.error('Error al obtener próximo código:', error);
+    res.status(500).json({ error: 'Error al obtener próximo código' });
   }
 };

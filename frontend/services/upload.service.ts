@@ -23,10 +23,10 @@ export const uploadService = {
     try {
       const payload = {
         image: imageBase64,
-        folder: folder || 'activos-greenfield/articulos',
+        folder: folder || 'activos-greenfield/activos',
       };
-      const result: UploadResponse = await api.post('/upload/image', payload);
-      return result.data;
+      const result = await api.post('/upload/image', payload);
+      return result.data.data;
     } catch (error) {
       console.error('Error en uploadImage:', error);
       throw error;

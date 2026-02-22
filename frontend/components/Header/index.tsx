@@ -21,18 +21,21 @@ const Header = () => {
   const cargarLugares = async () => {
     try {
       const data = await lugarService.getAll();
-      setLugares(data);
+      setLugares(data || []);
     } catch (error) {
       console.error("Error al cargar lugares:", error);
+      setLugares([]);
     }
   };
   
   // Agrupar lugares por tipo
-  const lugaresPorTipo = lugares.reduce((acc: any, lugar: any) => {
-    if (!acc[lugar.tipo]) {
-      acc[lugar.tipo] = [];
+  const lugaresPorTipo = (lugares || []).reduce((acc: any, lugar: any) => {
+    if (lugar?.tipo) {
+      if (!acc[lugar.tipo]) {
+        acc[lugar.tipo] = [];
+      }
+      acc[lugar.tipo].push(lugar);
     }
-    acc[lugar.tipo].push(lugar);
     return acc;
   }, {});
   

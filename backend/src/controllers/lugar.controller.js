@@ -50,15 +50,21 @@ export const crearLugar = async (req, res) => {
   try {
     const { nombre, inicial, tipo } = req.body;
     
-    if (!nombre || !inicial) {
-      return res.status(400).json({ error: 'Nombre e inicial son requeridos' });
+    if (!nombre || !inicial || !tipo) {
+      return res.status(400).json({ error: 'Nombre, inicial y tipo son requeridos' });
+    }
+
+    // Validar que el tipo sea válido
+    const tiposValidos = ['VIVIENDA', 'OFICINA', 'ALMACEN', 'CENTER', 'PROPIEDAD'];
+    if (!tiposValidos.includes(tipo.toUpperCase())) {
+      return res.status(400).json({ error: 'Tipo de lugar inválido' });
     }
 
     await client.query('BEGIN');
 
     const result = await client.query(
       'INSERT INTO lugar (nombre, inicial, tipo) VALUES ($1, $2, $3) RETURNING *',
-      [nombre.trim(), inicial.trim().toUpperCase(), tipo || null]
+      [nombre.trim(), inicial.trim().toUpperCase(), tipo.toUpperCase()]
     );
 
     const nuevoLugar = result.rows[0];
@@ -94,8 +100,14 @@ export const actualizarLugar = async (req, res) => {
     const { id } = req.params;
     const { nombre, inicial, tipo } = req.body;
 
-    if (!nombre || !inicial) {
-      return res.status(400).json({ error: 'Nombre e inicial son requeridos' });
+    if (!nombre || !inicial || !tipo) {
+      return res.status(400).json({ error: 'Nombre, inicial y tipo son requeridos' });
+    }
+
+    // Validar que el tipo sea válido
+    const tiposValidos = ['VIVIENDA', 'OFICINA', 'ALMACEN', 'CENTER', 'PROPIEDAD'];
+    if (!tiposValidos.includes(tipo.toUpperCase())) {
+      return res.status(400).json({ error: 'Tipo de lugar inválido' });
     }
 
     await client.query('BEGIN');
@@ -114,7 +126,7 @@ export const actualizarLugar = async (req, res) => {
 
     const result = await client.query(
       'UPDATE lugar SET nombre = $1, inicial = $2, tipo = $3 WHERE id = $4 RETURNING *',
-      [nombre.trim(), inicial.trim().toUpperCase(), tipo || null, id]
+      [nombre.trim(), inicial.trim().toUpperCase(), tipo.toUpperCase(), id]
     );
 
     const lugarActualizado = result.rows[0];

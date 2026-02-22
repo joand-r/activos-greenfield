@@ -29,10 +29,11 @@ const ListaMarcasPage = () => {
     showLoading();
     try {
       const data = await marcaService.getAll();
-      setMarcas(data);
+      setMarcas(data || []);
     } catch (error: any) {
       console.error("Error al cargar marcas:", error);
       setError(error.message || "Error al cargar las marcas");
+      setMarcas([]);
     } finally {
       hideLoading();
     }
@@ -73,8 +74,8 @@ const ListaMarcasPage = () => {
     }
   };
 
-  const marcasFiltradas = marcas.filter((marca) =>
-    marca.nombre.toLowerCase().includes(busqueda.toLowerCase())
+  const marcasFiltradas = (marcas || []).filter((marca) =>
+    marca?.nombre?.toLowerCase().includes(busqueda.toLowerCase())
   );
 
   return (
