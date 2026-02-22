@@ -77,7 +77,7 @@ const RegistrarLugarPage = () => {
     showLoading();
 
     try {
-      const nuevoLugar = await lugarService.create(formData);
+      const nuevoLugar = await lugarService.create({ ...formData, tipo: formData.tipo as TipoLugar });
       setSuccess(`Lugar registrado exitosamente: ${nuevoLugar?.nombre || formData.nombre} (${nuevoLugar?.inicial || formData.inicial})`);
       
       setFormData({
