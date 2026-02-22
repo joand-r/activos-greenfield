@@ -96,7 +96,7 @@ const AlmacenPage = () => {
                     </h3>
                     <p className="mb-4 text-sm">
                       <strong>Estado:</strong>{" "}
-                      <span className={item.estado === "Disponible" ? "text-green-600 dark:text-green-400" : "text-yellow-600 dark:text-yellow-400"}>
+                      <span className={item.estado === "DISPONIBLE" ? "text-green-600 dark:text-green-400" : "text-yellow-600 dark:text-yellow-400"}>
                         {item.estado}
                       </span>
                     </p>
