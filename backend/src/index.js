@@ -68,25 +68,11 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(loggerMiddleware);
 
-// Verificar conexión y aplicar columnas nuevas de forma idempotente
+// Verificar conexión y sembrar superadmin si no existe
 (async () => {
   try {
     await pool.query('SELECT NOW()');
     console.log('✅ Conexión exitosa a PostgreSQL');
-
-    // Asegurar que nuevo_activo_id existe (puede no existir en DBs antiguas)
-    await pool.query(`
-      ALTER TABLE movimiento
-        ADD COLUMN IF NOT EXISTS nuevo_activo_id BIGINT;
-    `);
-
-    // Asegurar que serie existe en activo
-    await pool.query(`
-      ALTER TABLE activo
-        ADD COLUMN IF NOT EXISTS serie VARCHAR(100);
-    `);
-
-    console.log('✅ Columnas verificadas/migradas');
 
     // Crear superadmin automáticamente si no existe
     const SUPERADMIN_EMAIL = 'joandanielrr0@gmail.com';

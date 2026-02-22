@@ -93,6 +93,17 @@ const ListaMovimientosPage = () => {
     return nombres[estado] || estado;
   };
 
+  const getLugarDestinoLabel = (mov: Movimiento) => {
+    if (mov.lugar_destino_nombre) return mov.lugar_destino_nombre;
+    switch (mov.estado) {
+      case 'DANADO': return 'Fue Dañado';
+      case 'DONADO': return 'Fue Donado';
+      case 'VENDIDO': return 'Fue Vendido';
+      case 'TRANSFERIR': return 'Transferido';
+      default: return '—';
+    }
+  };
+
   const movimientosFiltrados = movimientos.filter((movimiento) =>
     movimiento.codigo_movimiento?.toLowerCase().includes(busqueda.toLowerCase()) ||
     movimiento.responsable?.toLowerCase().includes(busqueda.toLowerCase())
@@ -210,7 +221,7 @@ const ListaMovimientosPage = () => {
                         {movimiento.lugar_origen_nombre || `ID: ${movimiento.lugar_origen_id}`}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
-                        {movimiento.lugar_destino_nombre || `ID: ${movimiento.lugar_destino_id}`}
+                        {getLugarDestinoLabel(movimiento)}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                         {formatearFecha(movimiento.fecha_movimiento)}
@@ -302,7 +313,7 @@ const ListaMovimientosPage = () => {
                   <div>
                     <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Lugar Destino:</p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {movimientoSeleccionado.lugar_destino_nombre || `ID: ${movimientoSeleccionado.lugar_destino_id}`}
+                      {getLugarDestinoLabel(movimientoSeleccionado)}
                     </p>
                   </div>
                 </div>

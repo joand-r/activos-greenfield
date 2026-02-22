@@ -284,6 +284,20 @@ export async function up(client) {
   // Insertar datos iniciales
   console.log('🌱 Insertando datos iniciales...');
   
+  // Columnas que pueden no existir en DBs creadas antes de esta versión
+  console.log('🔧 Verificando columnas y constraints...');
+  await client.query(`ALTER TABLE activo ADD COLUMN IF NOT EXISTS serie VARCHAR(100);`);
+  await client.query(`ALTER TABLE movimiento ADD COLUMN IF NOT EXISTS nuevo_activo_id BIGINT;`);
+
+  // Ampliar CHECK constraint de rol para soportar 'superadmin'
+  await client.query(`ALTER TABLE usuario DROP CONSTRAINT IF EXISTS usuario_rol_check;`);
+  await client.query(`
+    ALTER TABLE usuario
+      ADD CONSTRAINT usuario_rol_check
+      CHECK (rol IN ('admin', 'usuario', 'superadmin'));
+  `);
+  console.log('✅ Columnas y constraints verificados\n');
+
   // Usuario admin
   const adminCheck = await client.query(`SELECT id FROM usuario WHERE email = 'admin@greenfield.com'`);
   if (adminCheck.rows.length === 0) {
