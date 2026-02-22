@@ -1,0 +1,129 @@
+# =============================================================
+#  GitHub Actions — Backup Automatizado de PostgreSQL (Railway)
+#  Estrategia: Regla 3-2-1
+#    • Copia 1 → Railway (snapshots automáticos nativos)
+#    • Copia 2 → Este workflow (pg_dump → .sql.gz)
+#    • Copia 3 → AWS S3 en región distinta (OTRA cuenta / bucket)
+#
+#  Ejecución: diaria a las 03:00 AM UTC
+#  Retención en S3: 30 días (lifecycle policy recomendada)
+# =============================================================
+
+name: 🗄️ PostgreSQL Backup → S3
+
+on:
+  schedule:
+    # Todos los días a las 03:00 AM UTC
+    - cron: '0 3 * * *'
+
+  # Permite ejecutar manualmente desde la pestaña Actions
+  workflow_dispatch:
+
+jobs:
+  backup:
+    name: pg_dump → S3
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      # Nombre del archivo de respaldo con fecha y hora UTC
+      BACKUP_FILENAME: backup_${{ github.run_number }}_$(date -u +%Y%m%d_%H%M%S).sql.gz
+
+    steps:
+      # ── 1. Checkout (opcional, solo para tener contexto del repo) ──
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: '.'   # No descarga archivos, solo metadata
+
+      # ── 2. Instalar cliente PostgreSQL (pg_dump) ──────────────────
+      - name: Instalar postgresql-client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      # ── 3. Generar el dump comprimido ─────────────────────────────
+      #  PGPASSWORD se inyecta como variable de entorno para evitar
+      #  que la contraseña quede expuesta en los logs o en el proceso.
+      - name: Ejecutar pg_dump
+        env:
+          PGPASSWORD: ${{ secrets.RAILWAY_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          TIMESTAMP=$(date -u +%Y%m%d_%H%M%S)
+          FILENAME="backup_${TIMESTAMP}.sql.gz"
+
+          echo "🕐 Iniciando backup: ${FILENAME}"
+
+          pg_dump \
+            --host="${{ secrets.RAILWAY_DB_HOST }}" \
+            --port="${{ secrets.RAILWAY_DB_PORT }}" \
+            --username="${{ secrets.RAILWAY_DB_USER }}" \
+            --dbname="${{ secrets.RAILWAY_DB_NAME }}" \
+            --format=plain \
+            --no-owner \
+            --no-acl \
+            --verbose \
+          | gzip -9 > "${FILENAME}"
+
+          echo "✅ Dump generado: ${FILENAME} ($(du -sh ${FILENAME} | cut -f1))"
+          # Exportar el nombre para los pasos siguientes
+          echo "BACKUP_FILE=${FILENAME}" >> $GITHUB_ENV
+
+      # ── 4. Verificar integridad básica del archivo ────────────────
+      - name: Verificar dump
+        run: |
+          if [ ! -s "${{ env.BACKUP_FILE }}" ]; then
+            echo "❌ El archivo de backup está vacío o no existe"
+            exit 1
+          fi
+          echo "✅ Tamaño del backup: $(du -sh ${{ env.BACKUP_FILE }} | cut -f1)"
+          # Verificar que el gzip es válido
+          gzip -t "${{ env.BACKUP_FILE }}" && echo "✅ Integridad del .gz: OK"
+
+      # ── 5. Subir a AWS S3 ─────────────────────────────────────────
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ secrets.AWS_REGION }}          # ej: us-east-1
+
+      - name: Subir backup a S3
+        run: |
+          YEAR=$(date -u +%Y)
+          MONTH=$(date -u +%m)
+
+          # Estructura de carpetas: backups/YYYY/MM/archivo.sql.gz
+          S3_PATH="s3://${{ secrets.AWS_S3_BUCKET }}/backups/activos-greenfield/${YEAR}/${MONTH}/${{ env.BACKUP_FILE }}"
+
+          echo "📤 Subiendo a: ${S3_PATH}"
+
+          aws s3 cp "${{ env.BACKUP_FILE }}" "${S3_PATH}" \
+            --storage-class STANDARD_IA \
+            --sse AES256 \
+            --no-progress
+
+          echo "✅ Backup subido correctamente a S3"
+
+      # ── 6. Limpiar el archivo local ───────────────────────────────
+      - name: Limpiar archivo temporal
+        if: always()
+        run: rm -f "${{ env.BACKUP_FILE }}"
+
+      # ── 7. Notificación en caso de fallo ─────────────────────────
+      #  Descomenta y configura SLACK_WEBHOOK_URL en los secrets si
+      #  quieres recibir alertas por Slack cuando falle el backup.
+      #
+      # - name: Notificar fallo en Slack
+      #   if: failure()
+      #   uses: slackapi/slack-github-action@v1.26.0
+      #   with:
+      #     payload: |
+      #       {
+      #         "text": "❌ *Backup fallido* en `activos-greenfield`\nWorkflow: ${{ github.workflow }}\nEjecución: ${{ github.run_number }}\nVer detalles: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+      #       }
+      #   env:
+      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      #     SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

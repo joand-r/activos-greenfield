@@ -19,28 +19,49 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Configurar CORS con orígenes permitidos
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:3002',
-  process.env.FRONTEND_URL // URL de Netlify
-].filter(Boolean);
+// ─────────────────────────────────────────────────────────────
+//  CORS — lista blanca estricta
+//  En producción solo se permite el dominio de Netlify.
+//  Agrega más orígenes separados por coma en ALLOWED_ORIGINS:
+//    ALLOWED_ORIGINS=https://activos.netlify.app,https://mi-dominio.com
+// ─────────────────────────────────────────────────────────────
+const buildAllowedOrigins = () => {
+  const base = ['http://localhost:3000', 'http://localhost:3002'];
 
-// Middlewares
-app.use(cors({
+  // Soporte para múltiples orígenes de producción separados por coma
+  const fromEnv = (process.env.ALLOWED_ORIGINS || process.env.FRONTEND_URL || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  return [...base, ...fromEnv];
+};
+
+const allowedOrigins = buildAllowedOrigins();
+
+const corsOptions = {
   origin: (origin, callback) => {
-    // Permitir requests sin origin (como mobile apps o curl)
+    // Permitir requests sin origin (Postman, curl, mobile apps internas)
     if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('No permitido por CORS'));
+      console.warn(`[CORS] Origen bloqueado: ${origin}`);
+      callback(new Error(`Origen no permitido por CORS: ${origin}`));
     }
   },
-  credentials: true
-}));
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  // Cachea la respuesta OPTIONS durante 10 min para reducir preflight requests
+  maxAge: 600,
+};
+
+// Middlewares
+app.use(cors(corsOptions));
+// Responde automáticamente a los preflight requests (método OPTIONS)
+app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(loggerMiddleware);
