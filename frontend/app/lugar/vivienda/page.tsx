@@ -18,7 +18,7 @@ const ViviendaPage = () => {
       try {
         // Obtener todos los lugares y filtrar por tipo Vivienda
         const lugares = await lugarService.getAll();
-        const vivienda = lugares.find((l: Lugar) => l.tipo === 'Vivienda');
+        const vivienda = lugares.find((l: Lugar) => l.tipo === 'VIVIENDA');
         
         if (vivienda) {
           setLugar(vivienda);

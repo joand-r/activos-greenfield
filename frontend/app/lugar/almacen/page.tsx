@@ -18,7 +18,7 @@ const AlmacenPage = () => {
       try {
         // Obtener todos los lugares y filtrar por tipo Almacén
         const lugares = await lugarService.getAll();
-        const almacen = lugares.find((l: Lugar) => l.tipo === 'Almacén');
+        const almacen = lugares.find((l: Lugar) => l.tipo === 'ALMACEN');
         
         if (almacen) {
           setLugar(almacen);

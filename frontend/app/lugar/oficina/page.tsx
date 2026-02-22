@@ -18,7 +18,7 @@ const OficinaPage = () => {
       try {
         // Obtener todos los lugares y filtrar por tipo Oficina
         const lugares = await lugarService.getAll();
-        const oficina = lugares.find((l: Lugar) => l.tipo === 'Oficina');
+        const oficina = lugares.find((l: Lugar) => l.tipo === 'OFICINA');
         
         if (oficina) {
           setLugar(oficina);
