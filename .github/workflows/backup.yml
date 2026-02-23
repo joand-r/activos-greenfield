@@ -66,7 +66,7 @@ jobs:
 
           echo "🕐 Iniciando backup: ${FILENAME}"
 
-          pg_dump \
+          /usr/lib/postgresql/17/bin/pg_dump \
             "${RAILWAY_DATABASE_URL}" \
             --format=plain \
             --no-owner \
