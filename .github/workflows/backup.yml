@@ -25,11 +25,21 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      # ── 1. Instalar cliente PostgreSQL (pg_dump) ──────────────────
-      - name: Instalar postgresql-client
+      # ── 1. Instalar cliente PostgreSQL 17 (pg_dump) ───────────────
+      #  ubuntu-latest trae pg_dump v16 por defecto; Railway usa v17,
+      #  y pg_dump rechaza conectarse a un servidor de versión mayor.
+      - name: Instalar postgresql-client-17
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends postgresql-client
+          sudo apt-get install -y --no-install-recommends curl ca-certificates
+          # Repositorio oficial de PostgreSQL para Ubuntu
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
+          echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client-17
+          pg_dump --version
 
       # ── 2. Validar que el secret de conexión está configurado ─────
       - name: Validar secret de base de datos
