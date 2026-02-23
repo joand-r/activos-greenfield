@@ -1,15 +1,14 @@
 # =============================================================
 #  GitHub Actions — Backup Automatizado de PostgreSQL (Railway)
-#  Estrategia: Regla 3-2-1
-#    • Copia 1 → Railway (snapshots automáticos nativos)
-#    • Copia 2 → Este workflow (pg_dump → .sql.gz)
-#    • Copia 3 → AWS S3 en región distinta (OTRA cuenta / bucket)
+#
+#  • Copia 1 → Railway (snapshots automáticos nativos)
+#  • Copia 2 → Este workflow (pg_dump → artefacto de GitHub)
 #
 #  Ejecución: diaria a las 03:00 AM UTC
-#  Retención en S3: 30 días (lifecycle policy recomendada)
+#  Retención del artefacto: 90 días (máximo plan gratuito)
 # =============================================================
 
-name: 🗄️ PostgreSQL Backup → S3
+name: 🗄️ PostgreSQL Backup
 
 on:
   schedule:
@@ -21,63 +20,33 @@ on:
 
 jobs:
   backup:
-    name: pg_dump → S3
+    name: pg_dump → Artifact
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    env:
-      # Nombre del archivo de respaldo con fecha y hora UTC
-      BACKUP_FILENAME: backup_${{ github.run_number }}_$(date -u +%Y%m%d_%H%M%S).sql.gz
-
     steps:
-      # ── 1. Checkout (opcional, solo para tener contexto del repo) ──
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          sparse-checkout: '.'   # No descarga archivos, solo metadata
-
-      # ── 2. Instalar cliente PostgreSQL (pg_dump) ──────────────────
+      # ── 1. Instalar cliente PostgreSQL (pg_dump) ──────────────────
       - name: Instalar postgresql-client
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends postgresql-client
 
-      # ── 3. Validar que los secrets de conexión están configurados ──
-      - name: Validar secrets de base de datos
+      # ── 2. Validar que el secret de conexión está configurado ─────
+      - name: Validar secret de base de datos
         env:
-          RAILWAY_DB_HOST: ${{ secrets.RAILWAY_DB_HOST }}
-          RAILWAY_DB_PORT: ${{ secrets.RAILWAY_DB_PORT }}
-          RAILWAY_DB_USER: ${{ secrets.RAILWAY_DB_USER }}
-          RAILWAY_DB_NAME: ${{ secrets.RAILWAY_DB_NAME }}
-          RAILWAY_DB_PASSWORD: ${{ secrets.RAILWAY_DB_PASSWORD }}
           RAILWAY_DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
         run: |
           set -euo pipefail
-          # Se acepta DATABASE_URL completa (Railway la provee directamente)
-          # o los cinco campos individuales.
-          if [ -n "${RAILWAY_DATABASE_URL}" ]; then
-            echo "✅ Usando RAILWAY_DATABASE_URL"
-          else
-            MISSING=""
-            [ -z "${RAILWAY_DB_HOST}" ]     && MISSING="${MISSING} RAILWAY_DB_HOST"
-            [ -z "${RAILWAY_DB_PORT}" ]     && MISSING="${MISSING} RAILWAY_DB_PORT"
-            [ -z "${RAILWAY_DB_USER}" ]     && MISSING="${MISSING} RAILWAY_DB_USER"
-            [ -z "${RAILWAY_DB_NAME}" ]     && MISSING="${MISSING} RAILWAY_DB_NAME"
-            [ -z "${RAILWAY_DB_PASSWORD}" ] && MISSING="${MISSING} RAILWAY_DB_PASSWORD"
-            if [ -n "${MISSING}" ]; then
-              echo "❌ Faltan los siguientes secrets en GitHub:${MISSING}"
-              echo "   Configúralos en: Settings → Secrets and variables → Actions"
-              exit 1
-            fi
-            echo "✅ Todos los secrets de conexión están presentes"
+          if [ -z "${RAILWAY_DATABASE_URL}" ]; then
+            echo "❌ El secret RAILWAY_DATABASE_URL no está configurado."
+            echo "   Configúralo en: Settings → Secrets and variables → Actions"
+            exit 1
           fi
+          echo "✅ RAILWAY_DATABASE_URL presente"
 
-      # ── 4. Generar el dump comprimido ─────────────────────────────
-      #  PGPASSWORD se inyecta como variable de entorno para evitar
-      #  que la contraseña quede expuesta en los logs o en el proceso.
+      # ── 3. Generar el dump comprimido ─────────────────────────────
       - name: Ejecutar pg_dump
         env:
-          PGPASSWORD: ${{ secrets.RAILWAY_DB_PASSWORD }}
           RAILWAY_DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
         run: |
           set -euo pipefail
@@ -87,33 +56,18 @@ jobs:
 
           echo "🕐 Iniciando backup: ${FILENAME}"
 
-          if [ -n "${RAILWAY_DATABASE_URL}" ]; then
-            # Usar la URL completa que Railway expone (recomendado)
-            pg_dump \
-              "${RAILWAY_DATABASE_URL}" \
-              --format=plain \
-              --no-owner \
-              --no-acl \
-              --verbose \
-            | gzip -9 > "${FILENAME}"
-          else
-            pg_dump \
-              --host="${{ secrets.RAILWAY_DB_HOST }}" \
-              --port="${{ secrets.RAILWAY_DB_PORT }}" \
-              --username="${{ secrets.RAILWAY_DB_USER }}" \
-              --dbname="${{ secrets.RAILWAY_DB_NAME }}" \
-              --format=plain \
-              --no-owner \
-              --no-acl \
-              --verbose \
-            | gzip -9 > "${FILENAME}"
-          fi
+          pg_dump \
+            "${RAILWAY_DATABASE_URL}" \
+            --format=plain \
+            --no-owner \
+            --no-acl \
+            --verbose \
+          | gzip -9 > "${FILENAME}"
 
           echo "✅ Dump generado: ${FILENAME} ($(du -sh ${FILENAME} | cut -f1))"
-          # Exportar el nombre para los pasos siguientes
           echo "BACKUP_FILE=${FILENAME}" >> $GITHUB_ENV
 
-      # ── 5. Verificar integridad básica del archivo ────────────────
+      # ── 4. Verificar integridad básica del archivo ────────────────
       - name: Verificar dump
         run: |
           if [ ! -s "${{ env.BACKUP_FILE }}" ]; then
@@ -121,51 +75,13 @@ jobs:
             exit 1
           fi
           echo "✅ Tamaño del backup: $(du -sh ${{ env.BACKUP_FILE }} | cut -f1)"
-          # Verificar que el gzip es válido
           gzip -t "${{ env.BACKUP_FILE }}" && echo "✅ Integridad del .gz: OK"
 
-      # ── 6. Subir a AWS S3 ─────────────────────────────────────────
-      - name: Configurar credenciales AWS
-        uses: aws-actions/configure-aws-credentials@v4
+      # ── 5. Guardar como artefacto de GitHub Actions ───────────────
+      #  Descargable desde: Actions → ejecución → sección Artifacts
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ${{ secrets.AWS_REGION }}          # ej: us-east-1
-
-      - name: Subir backup a S3
-        run: |
-          YEAR=$(date -u +%Y)
-          MONTH=$(date -u +%m)
-
-          # Estructura de carpetas: backups/YYYY/MM/archivo.sql.gz
-          S3_PATH="s3://${{ secrets.AWS_S3_BUCKET }}/backups/activos-greenfield/${YEAR}/${MONTH}/${{ env.BACKUP_FILE }}"
-
-          echo "📤 Subiendo a: ${S3_PATH}"
-
-          aws s3 cp "${{ env.BACKUP_FILE }}" "${S3_PATH}" \
-            --storage-class STANDARD_IA \
-            --sse AES256 \
-            --no-progress
-
-          echo "✅ Backup subido correctamente a S3"
-
-      # ── 7. Limpiar el archivo local ───────────────────────────────
-      - name: Limpiar archivo temporal
-        if: always()
-        run: rm -f "${{ env.BACKUP_FILE }}"
-
-      # ── 8. Notificación en caso de fallo ─────────────────────────
-      #  Descomenta y configura SLACK_WEBHOOK_URL en los secrets si
-      #  quieres recibir alertas por Slack cuando falle el backup.
-      #
-      # - name: Notificar fallo en Slack
-      #   if: failure()
-      #   uses: slackapi/slack-github-action@v1.26.0
-      #   with:
-      #     payload: |
-      #       {
-      #         "text": "❌ *Backup fallido* en `activos-greenfield`\nWorkflow: ${{ github.workflow }}\nEjecución: ${{ github.run_number }}\nVer detalles: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-      #       }
-      #   env:
-      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      #     SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+          name: db-backup-${{ github.run_number }}
+          path: ${{ env.BACKUP_FILE }}
+          retention-days: 90
