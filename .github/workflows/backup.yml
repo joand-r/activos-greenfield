@@ -42,12 +42,43 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends postgresql-client
 
-      # ── 3. Generar el dump comprimido ─────────────────────────────
+      # ── 3. Validar que los secrets de conexión están configurados ──
+      - name: Validar secrets de base de datos
+        env:
+          RAILWAY_DB_HOST: ${{ secrets.RAILWAY_DB_HOST }}
+          RAILWAY_DB_PORT: ${{ secrets.RAILWAY_DB_PORT }}
+          RAILWAY_DB_USER: ${{ secrets.RAILWAY_DB_USER }}
+          RAILWAY_DB_NAME: ${{ secrets.RAILWAY_DB_NAME }}
+          RAILWAY_DB_PASSWORD: ${{ secrets.RAILWAY_DB_PASSWORD }}
+          RAILWAY_DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          # Se acepta DATABASE_URL completa (Railway la provee directamente)
+          # o los cinco campos individuales.
+          if [ -n "${RAILWAY_DATABASE_URL}" ]; then
+            echo "✅ Usando RAILWAY_DATABASE_URL"
+          else
+            MISSING=""
+            [ -z "${RAILWAY_DB_HOST}" ]     && MISSING="${MISSING} RAILWAY_DB_HOST"
+            [ -z "${RAILWAY_DB_PORT}" ]     && MISSING="${MISSING} RAILWAY_DB_PORT"
+            [ -z "${RAILWAY_DB_USER}" ]     && MISSING="${MISSING} RAILWAY_DB_USER"
+            [ -z "${RAILWAY_DB_NAME}" ]     && MISSING="${MISSING} RAILWAY_DB_NAME"
+            [ -z "${RAILWAY_DB_PASSWORD}" ] && MISSING="${MISSING} RAILWAY_DB_PASSWORD"
+            if [ -n "${MISSING}" ]; then
+              echo "❌ Faltan los siguientes secrets en GitHub:${MISSING}"
+              echo "   Configúralos en: Settings → Secrets and variables → Actions"
+              exit 1
+            fi
+            echo "✅ Todos los secrets de conexión están presentes"
+          fi
+
+      # ── 4. Generar el dump comprimido ─────────────────────────────
       #  PGPASSWORD se inyecta como variable de entorno para evitar
       #  que la contraseña quede expuesta en los logs o en el proceso.
       - name: Ejecutar pg_dump
         env:
           PGPASSWORD: ${{ secrets.RAILWAY_DB_PASSWORD }}
+          RAILWAY_DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
         run: |
           set -euo pipefail
 
@@ -56,22 +87,33 @@ jobs:
 
           echo "🕐 Iniciando backup: ${FILENAME}"
 
-          pg_dump \
-            --host="${{ secrets.RAILWAY_DB_HOST }}" \
-            --port="${{ secrets.RAILWAY_DB_PORT }}" \
-            --username="${{ secrets.RAILWAY_DB_USER }}" \
-            --dbname="${{ secrets.RAILWAY_DB_NAME }}" \
-            --format=plain \
-            --no-owner \
-            --no-acl \
-            --verbose \
-          | gzip -9 > "${FILENAME}"
+          if [ -n "${RAILWAY_DATABASE_URL}" ]; then
+            # Usar la URL completa que Railway expone (recomendado)
+            pg_dump \
+              "${RAILWAY_DATABASE_URL}" \
+              --format=plain \
+              --no-owner \
+              --no-acl \
+              --verbose \
+            | gzip -9 > "${FILENAME}"
+          else
+            pg_dump \
+              --host="${{ secrets.RAILWAY_DB_HOST }}" \
+              --port="${{ secrets.RAILWAY_DB_PORT }}" \
+              --username="${{ secrets.RAILWAY_DB_USER }}" \
+              --dbname="${{ secrets.RAILWAY_DB_NAME }}" \
+              --format=plain \
+              --no-owner \
+              --no-acl \
+              --verbose \
+            | gzip -9 > "${FILENAME}"
+          fi
 
           echo "✅ Dump generado: ${FILENAME} ($(du -sh ${FILENAME} | cut -f1))"
           # Exportar el nombre para los pasos siguientes
           echo "BACKUP_FILE=${FILENAME}" >> $GITHUB_ENV
 
-      # ── 4. Verificar integridad básica del archivo ────────────────
+      # ── 5. Verificar integridad básica del archivo ────────────────
       - name: Verificar dump
         run: |
           if [ ! -s "${{ env.BACKUP_FILE }}" ]; then
@@ -82,7 +124,7 @@ jobs:
           # Verificar que el gzip es válido
           gzip -t "${{ env.BACKUP_FILE }}" && echo "✅ Integridad del .gz: OK"
 
-      # ── 5. Subir a AWS S3 ─────────────────────────────────────────
+      # ── 6. Subir a AWS S3 ─────────────────────────────────────────
       - name: Configurar credenciales AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -107,12 +149,12 @@ jobs:
 
           echo "✅ Backup subido correctamente a S3"
 
-      # ── 6. Limpiar el archivo local ───────────────────────────────
+      # ── 7. Limpiar el archivo local ───────────────────────────────
       - name: Limpiar archivo temporal
         if: always()
         run: rm -f "${{ env.BACKUP_FILE }}"
 
-      # ── 7. Notificación en caso de fallo ─────────────────────────
+      # ── 8. Notificación en caso de fallo ─────────────────────────
       #  Descomenta y configura SLACK_WEBHOOK_URL en los secrets si
       #  quieres recibir alertas por Slack cuando falle el backup.
       #
