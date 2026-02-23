@@ -107,11 +107,11 @@ export default function Home() {
 
   const tiposLugar = [
     { id: "todos", nombre: "Todos", color: "bg-gray-500" },
-    { id: "VIVIENDA", nombre: "Viviendas", color: "bg-green-500" },
-    { id: "OFICINA", nombre: "Oficinas", color: "bg-blue-500" },
-    { id: "ALMACEN", nombre: "Almacenes", color: "bg-purple-500" },
-    { id: "CENTER", nombre: "Centers", color: "bg-orange-500" },
-    { id: "PROPIEDAD", nombre: "Propiedades", color: "bg-pink-500" },
+    { id: "VIVIENDA", nombre: "Vivienda", color: "bg-green-500" },
+    { id: "OFICINA", nombre: "Oficina", color: "bg-blue-500" },
+    { id: "ALMACEN", nombre: "Almacen", color: "bg-purple-500" },
+    { id: "CENTER", nombre: "Center", color: "bg-orange-500" },
+    { id: "PROPIEDAD", nombre: "Propiedad", color: "bg-pink-500" },
   ];
 
   const getColorPorTipo = (tipo: string) => {

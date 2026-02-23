@@ -340,20 +340,16 @@ const RegistrarActivoPage = () => {
                         className="border-stroke dark:text-body-color-dark dark:shadow-two w-full rounded-sm border bg-white px-6 py-3 text-base text-body-color outline-none transition-all duration-300 focus:border-primary dark:border-transparent dark:bg-[#2C303B] dark:focus:border-primary dark:focus:shadow-none"
                       >
                         <option value="">-- Seleccione un tipo --</option>
-                        <optgroup label="Activos Simples">
-                          <option value="EDIFICACION">{getNombreTipoActivo('EDIFICACION')}</option>
-                          <option value="ELECTRODOMESTICO">{getNombreTipoActivo('ELECTRODOMESTICO')}</option>
-                          <option value="EQUIPO_CAMPO">{getNombreTipoActivo('EQUIPO_CAMPO')}</option>
-                          <option value="HERRAMIENTA">{getNombreTipoActivo('HERRAMIENTA')}</option>
-                          <option value="MUEBLE_ENSER">{getNombreTipoActivo('MUEBLE_ENSER')}</option>
-                          <option value="UTENSILIO_EQUIPAMIENTO">{getNombreTipoActivo('UTENSILIO_EQUIPAMIENTO')}</option>
-                        </optgroup>
-                        <optgroup label="Activos Complejos">
-                          <option value="EQUIPO_TECNOLOGICO">{getNombreTipoActivo('EQUIPO_TECNOLOGICO')}</option>
-                          <option value="VEHICULO">{getNombreTipoActivo('VEHICULO')}</option>
-                          <option value="MAQUINARIA">{getNombreTipoActivo('MAQUINARIA')}</option>
-                          <option value="TERRENO">{getNombreTipoActivo('TERRENO')}</option>
-                        </optgroup>
+                        <option value="EDIFICACION">{getNombreTipoActivo('EDIFICACION')}</option>
+                        <option value="ELECTRODOMESTICO">{getNombreTipoActivo('ELECTRODOMESTICO')}</option>
+                        <option value="EQUIPO_CAMPO">{getNombreTipoActivo('EQUIPO_CAMPO')}</option>
+                        <option value="HERRAMIENTA">{getNombreTipoActivo('HERRAMIENTA')}</option>
+                        <option value="MUEBLE_ENSER">{getNombreTipoActivo('MUEBLE_ENSER')}</option>
+                        <option value="UTENSILIO_EQUIPAMIENTO">{getNombreTipoActivo('UTENSILIO_EQUIPAMIENTO')}</option>
+                        <option value="EQUIPO_TECNOLOGICO">{getNombreTipoActivo('EQUIPO_TECNOLOGICO')}</option>
+                        <option value="VEHICULO">{getNombreTipoActivo('VEHICULO')}</option>
+                        <option value="MAQUINARIA">{getNombreTipoActivo('MAQUINARIA')}</option>
+                        <option value="TERRENO">{getNombreTipoActivo('TERRENO')}</option>
                       </select>
                     </div>
                   </div>

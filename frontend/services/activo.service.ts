@@ -100,7 +100,7 @@ export const getNombreTipoActivo = (tipo: TipoActivo): string => {
     ELECTRODOMESTICO: 'Electrodoméstico',
     EQUIPO_CAMPO: 'Equipo de Campo',
     HERRAMIENTA: 'Herramienta',
-    MUEBLE_ENSER: 'Mueble y Enser',
+    MUEBLE_ENSER: 'Muebles y Enseres',
     UTENSILIO_EQUIPAMIENTO: 'Utensilio y Equipamiento',
     EQUIPO_TECNOLOGICO: 'Equipo Tecnológico',
     VEHICULO: 'Vehículo',
