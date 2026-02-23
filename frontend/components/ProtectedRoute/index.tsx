@@ -22,8 +22,8 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
         return;
       }
 
-      // Si requiere admin y no es admin, redirigir a home
-      if (requireAdmin && user?.rol !== "admin") {
+      // Si requiere admin y no es admin ni superadmin, redirigir a home
+      if (requireAdmin && user?.rol !== "admin" && user?.rol !== "superadmin") {
         window.location.href = "/";
         return;
       }
