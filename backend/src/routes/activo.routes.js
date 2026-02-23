@@ -11,13 +11,14 @@ import { authenticateToken } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-router.use(authenticateToken);
-
+// Rutas públicas (sin token) — solo lectura
 router.get('/', obtenerActivos);
-router.get('/proximo-codigo/:lugar_id', obtenerProximoCodigo);
+router.get('/proximo-codigo/:lugar_id', authenticateToken, obtenerProximoCodigo);
 router.get('/:id', obtenerActivoPorId);
-router.post('/', crearActivo);
-router.put('/:id', actualizarActivo);
-router.delete('/:id', eliminarActivo);
+
+// Rutas protegidas — escritura
+router.post('/', authenticateToken, crearActivo);
+router.put('/:id', authenticateToken, actualizarActivo);
+router.delete('/:id', authenticateToken, eliminarActivo);
 
 export default router;
