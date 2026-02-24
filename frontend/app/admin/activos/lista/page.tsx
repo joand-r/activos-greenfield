@@ -42,7 +42,7 @@ const ListaActivosPage = () => {
   const [editImagenPreview, setEditImagenPreview] = useState('');
   const [editSubiendoImagen, setEditSubiendoImagen] = useState(false);
   const [editCamposEquipoTec, setEditCamposEquipoTec] = useState({ modelo: '', procesador: '', memoria: '', capacidad_disco: '' });
-  const [editCamposMotorizado, setEditCamposMotorizado] = useState({ tipo_vehiculo: '', motor: '', chasis: '', color: '', anho_modelo: '' });
+  const [editCamposMotorizado, setEditCamposMotorizado] = useState({ tipo_vehiculo: '', motor: '', chasis: '', color: '', anho_modelo: '', placa: '' });
   const [editCamposTerreno, setEditCamposTerreno] = useState({ folio: '', nro_registro: '', area: '', ubicacion: '' });
 
   useEffect(() => {
@@ -79,7 +79,7 @@ const ListaActivosPage = () => {
     switch (estado) {
       case 'NUEVO': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
       case 'USADO': return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
-      case 'DISPONIBLE': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+      case 'DISPONIBLE': return 'bg-teal-100 text-teal-800 dark:bg-teal-500/20 dark:text-teal-300';
       case 'DANADO': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
       case 'DONADO': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
       case 'VENDIDO': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400';
@@ -88,9 +88,16 @@ const ListaActivosPage = () => {
     }
   };
 
-  const verDetalle = (activo: Activo) => {
+  const verDetalle = async (activo: Activo) => {
     setActivoSeleccionado(activo);
     setModalAbierto(true);
+    // Cargar datos completos (imagen + datos_especificos)
+    try {
+      const completo = await activoService.getById(activo.id);
+      setActivoSeleccionado(completo);
+    } catch {
+      // si falla, queda con los datos parciales de la lista
+    }
   };
 
   const cerrarModal = () => {
@@ -125,7 +132,7 @@ const ListaActivosPage = () => {
         if (activo.tipo_activo === 'EQUIPO_TECNOLOGICO') {
           setEditCamposEquipoTec({ modelo: d.modelo || '', procesador: d.procesador || '', memoria: d.memoria || '', capacidad_disco: d.capacidad_disco || '' });
         } else if (activo.tipo_activo === 'VEHICULO' || activo.tipo_activo === 'MAQUINARIA') {
-          setEditCamposMotorizado({ tipo_vehiculo: d.tipo_vehiculo || '', motor: d.motor || '', chasis: d.chasis || '', color: d.color || '', anho_modelo: d.anho_modelo?.toString() || '' });
+          setEditCamposMotorizado({ tipo_vehiculo: d.tipo_vehiculo || '', motor: d.motor || '', chasis: d.chasis || '', color: d.color || '', anho_modelo: d.anho_modelo?.toString() || '', placa: d.placa || '' });
         } else if (activo.tipo_activo === 'TERRENO') {
           setEditCamposTerreno({ folio: d.folio || '', nro_registro: d.nro_registro || '', area: d.area?.toString() || '', ubicacion: d.ubicacion || '' });
         }
@@ -182,7 +189,7 @@ const ListaActivosPage = () => {
       if (tipo === 'EQUIPO_TECNOLOGICO') {
         datos_especificos = { modelo: editCamposEquipoTec.modelo || null, procesador: editCamposEquipoTec.procesador || null, memoria: editCamposEquipoTec.memoria || null, capacidad_disco: editCamposEquipoTec.capacidad_disco || null };
       } else if (tipo === 'VEHICULO' || tipo === 'MAQUINARIA') {
-        datos_especificos = { tipo_vehiculo: editCamposMotorizado.tipo_vehiculo || null, motor: editCamposMotorizado.motor || null, chasis: editCamposMotorizado.chasis || null, color: editCamposMotorizado.color || null, anho_modelo: editCamposMotorizado.anho_modelo ? parseInt(editCamposMotorizado.anho_modelo) : null };
+        datos_especificos = { tipo_vehiculo: editCamposMotorizado.tipo_vehiculo || null, motor: editCamposMotorizado.motor || null, chasis: editCamposMotorizado.chasis || null, color: editCamposMotorizado.color || null, anho_modelo: editCamposMotorizado.anho_modelo ? parseInt(editCamposMotorizado.anho_modelo) : null, placa: editCamposMotorizado.placa || null };
       } else if (tipo === 'TERRENO') {
         datos_especificos = { folio: editCamposTerreno.folio || null, nro_registro: editCamposTerreno.nro_registro || null, area: editCamposTerreno.area ? parseFloat(editCamposTerreno.area) : null, ubicacion: editCamposTerreno.ubicacion || null };
       }
@@ -718,7 +725,7 @@ const ListaActivosPage = () => {
                       )}
                       {(activoSeleccionado.tipo_activo === 'VEHICULO' || activoSeleccionado.tipo_activo === 'MAQUINARIA') && (
                         <div className="grid grid-cols-2 gap-3">
-                          {(['tipo_vehiculo', 'motor', 'chasis', 'color', 'anho_modelo'] as const).map(k => (
+                          {(['tipo_vehiculo', 'motor', 'chasis', 'color', 'anho_modelo', 'placa'] as const).map(k => (
                             <div key={k}>
                               <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400 capitalize">{k.replace(/_/g, ' ')}</label>
                               <input type={k === 'anho_modelo' ? 'number' : 'text'} value={editCamposMotorizado[k]} onChange={e => setEditCamposMotorizado(p => ({ ...p, [k]: e.target.value }))}
@@ -858,7 +865,7 @@ const ListaActivosPage = () => {
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Costo</p>
-                    <p className="text-sm font-bold text-green-700 dark:text-green-400 mt-0.5">
+                    <p className="text-sm font-bold text-teal-700 dark:text-teal-300 mt-0.5">
                       {activoSeleccionado.costo_adquision ? `Bs. ${parseFloat(String(activoSeleccionado.costo_adquision)).toFixed(2)}` : 'N/A'}
                     </p>
                   </div>
