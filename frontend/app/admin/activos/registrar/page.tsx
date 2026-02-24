@@ -76,6 +76,7 @@ const RegistrarActivoPage = () => {
     chasis: "",
     color: "",
     anho_modelo: "",
+    placa: "",
   });
 
   const [camposTerreno, setCamposTerreno] = useState({
@@ -224,6 +225,11 @@ const RegistrarActivoPage = () => {
       return;
     }
 
+    if (subiendoImagen) {
+      toast.error('Espera', 'La imagen aún se está subiendo, por favor espera');
+      return;
+    }
+
     showLoading();
     
     try {
@@ -244,6 +250,7 @@ const RegistrarActivoPage = () => {
           chasis: camposMotorizado.chasis || null,
           color: camposMotorizado.color || null,
           anho_modelo: camposMotorizado.anho_modelo ? parseInt(camposMotorizado.anho_modelo) : null,
+          placa: camposMotorizado.placa || null,
         };
       } else if (tipoActivo === 'TERRENO') {
         datos_especificos = {
@@ -794,6 +801,19 @@ const RegistrarActivoPage = () => {
                                   placeholder="Ej: 2023"
                                   min="1900"
                                   max="2100"
+                                  className="border-stroke dark:text-body-color-dark dark:shadow-two w-full rounded-sm border bg-[#f8f8f8] px-6 py-3 text-base text-body-color outline-none transition-all duration-300 focus:border-primary dark:border-transparent dark:bg-[#2C303B] dark:focus:border-primary dark:focus:shadow-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-3 block text-sm font-medium text-dark dark:text-white">
+                                  Placa
+                                </label>
+                                <input
+                                  type="text"
+                                  value={camposMotorizado.placa}
+                                  onChange={(e) => setCamposMotorizado({...camposMotorizado, placa: e.target.value})}
+                                  placeholder="Ej: ABC-1234"
+                                  maxLength={10}
                                   className="border-stroke dark:text-body-color-dark dark:shadow-two w-full rounded-sm border bg-[#f8f8f8] px-6 py-3 text-base text-body-color outline-none transition-all duration-300 focus:border-primary dark:border-transparent dark:bg-[#2C303B] dark:focus:border-primary dark:focus:shadow-none"
                                 />
                               </div>

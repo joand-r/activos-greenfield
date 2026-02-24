@@ -66,6 +66,7 @@ export interface Motorizado {
   chasis?: string | null;
   color?: string | null;
   anho_modelo?: number | null;
+  placa?: string | null;
 }
 
 export interface Terreno {

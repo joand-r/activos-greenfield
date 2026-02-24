@@ -94,7 +94,7 @@ export const obtenerActivoPorId = async (req, res) => {
     let datosEspecificos = null;
     
     switch (activo.tipo_activo) {
-      case 'TECNOLOGICO':
+      case 'EQUIPO_TECNOLOGICO':
         const tecResult = await pool.query(
           'SELECT * FROM equipos_tecnologicos WHERE activo_id = $1',
           [id]
@@ -102,7 +102,8 @@ export const obtenerActivoPorId = async (req, res) => {
         datosEspecificos = tecResult.rows[0] || null;
         break;
         
-      case 'MOTORIZADO':
+      case 'VEHICULO':
+      case 'MAQUINARIA':
         const motResult = await pool.query(
           'SELECT * FROM motorizados WHERE activo_id = $1',
           [id]
@@ -189,7 +190,7 @@ export const crearActivo = async (req, res) => {
  // Crear registro en tabla hija según tipo
     if (datos_especificos) {
       switch (tipo_activo) {
-        case 'TECNOLOGICO':
+        case 'EQUIPO_TECNOLOGICO':
           await client.query(
             `INSERT INTO equipos_tecnologicos 
              (activo_id, modelo, procesador, memoria, capacidad_disco)
@@ -204,18 +205,20 @@ export const crearActivo = async (req, res) => {
           );
           break;
           
-        case 'MOTORIZADO':
+        case 'VEHICULO':
+        case 'MAQUINARIA':
           await client.query(
             `INSERT INTO motorizados 
-             (activo_id, tipo_vehiculo, motor, chasis, color, anho_modelo)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
+             (activo_id, tipo_vehiculo, motor, chasis, color, anho_modelo, placa)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
             [
               activoId,
               datos_especificos.tipo_vehiculo || null,
               datos_especificos.motor || null,
               datos_especificos.chasis || null,
               datos_especificos.color || null,
-              datos_especificos.anho_modelo || null
+              datos_especificos.anho_modelo || null,
+              datos_especificos.placa || null
             ]
           );
           break;
@@ -314,7 +317,7 @@ export const actualizarActivo = async (req, res) => {
     // Actualizar tabla hija si hay datos específicos
     if (datos_especificos) {
       switch (tipo_activo) {
-        case 'TECNOLOGICO':
+        case 'EQUIPO_TECNOLOGICO':
           await client.query(
             `UPDATE equipos_tecnologicos 
              SET modelo = $1, procesador = $2, memoria = $3, capacidad_disco = $4
@@ -329,17 +332,19 @@ export const actualizarActivo = async (req, res) => {
           );
           break;
           
-        case 'MOTORIZADO':
+        case 'VEHICULO':
+        case 'MAQUINARIA':
           await client.query(
             `UPDATE motorizados 
-             SET tipo_vehiculo = $1, motor = $2, chasis = $3, color = $4, anho_modelo = $5
-             WHERE activo_id = $6`,
+             SET tipo_vehiculo = $1, motor = $2, chasis = $3, color = $4, anho_modelo = $5, placa = $6
+             WHERE activo_id = $7`,
             [
               datos_especificos.tipo_vehiculo,
               datos_especificos.motor,
               datos_especificos.chasis,
               datos_especificos.color,
               datos_especificos.anho_modelo,
+              datos_especificos.placa,
               id
             ]
           );
