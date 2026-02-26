@@ -125,7 +125,7 @@ const EditarActivoPage = () => {
         imagen: activo.imagen || "",
         estado: activo.estado || "DISPONIBLE",
         descripcion: activo.descripcion || "",
-        fecha_adquision: activo.fecha_adquision || "",
+        fecha_adquision: activo.fecha_adquision ? activo.fecha_adquision.split('T')[0] : "",
         costo_adquision: activo.costo_adquision?.toString() || "",
         tipo_constancia: activo.tipo_constancia || "",
         nro_constancia: activo.nro_constancia || "",
