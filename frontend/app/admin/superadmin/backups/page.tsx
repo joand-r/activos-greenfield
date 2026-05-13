@@ -88,7 +88,7 @@ export default function BackupsPage() {
                 <div className="mt-4 rounded-lg bg-yellow-50 p-4 dark:bg-yellow-900/20">
                   <p className="text-sm text-yellow-800 dark:text-yellow-300">
                     <strong>ℹ️ Nota:</strong> Los backups se ejecutan automáticamente vía GitHub Actions.
-                    Verifica el estado en el repositorio → Actions → <em>Daily DB Backup</em>.
+                    Verifica el estado en el repositorio → Actions → <em>🗄️ PostgreSQL Backup</em>.
                   </p>
                 </div>
               </div>

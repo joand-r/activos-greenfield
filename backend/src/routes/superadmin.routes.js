@@ -147,7 +147,7 @@ router.get('/backups/info', async (req, res) => {
 
     res.json({
       config: {
-        schedule: 'Diario a las 3:00 AM UTC',
+        schedule: 'Semanal (Domingo) a las 3:00 AM UTC',
         destino: 'AWS S3 (bucket configurado en GitHub Secrets)',
         formato: 'pg_dump → gzip → cifrado SSE-S3',
         retencion: 'Gestionada por política S3',
