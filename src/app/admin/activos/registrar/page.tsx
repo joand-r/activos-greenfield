@@ -1,0 +1,916 @@
+﻿"use client";
+
+import Breadcrumb from "@/components/ui/Common/Breadcrumb";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useLoading } from "@/contexts/LoadingContext";
+import { useToast } from "@/contexts/ToastContext";
+import { 
+  activoService, 
+  TipoActivo, 
+  EstadoActivo,
+  TipoConstancia,
+  getNombreTipoActivo, 
+  getNombreEstadoActivo,
+  getNombreTipoConstancia,
+  esActivoSimple,
+  requiereMarcaProveedor 
+} from "@/services/activo.service";
+import { lugarService, Lugar } from "@/services/lugar.service";
+import { marcaService, Marca } from "@/services/marca.service";
+import { proveedorService, Proveedor } from "@/services/proveedor.service";
+import { uploadService } from "@/services/upload.service";
+import ComboboxCreator from "@/components/ui/ComboboxCreator";
+
+const RegistrarActivoPage = () => {
+  const router = useRouter();
+  const { showLoading, hideLoading } = useLoading();
+  const toast = useToast();
+  
+  useEffect(() => {
+    document.title = "Registro de Activo | Activos Greenfield";
+    cargarDatosSelects();
+  }, []);
+
+  // Estados para los selects
+  const [lugares, setLugares] = useState<Lugar[]>([]);
+  const [marcas, setMarcas] = useState<Marca[]>([]);
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+  
+  // Estado para el código próximo a generar
+  const [codigoProximo, setCodigoProximo] = useState<string>("");
+  const [cargandoCodigo, setCargandoCodigo] = useState(false);
+
+  // Estado del formulario principal
+  const [tipoActivo, setTipoActivo] = useState<TipoActivo | "">("");
+  const [formData, setFormData] = useState({
+    nombre: "",
+    serie: "",
+
+    imagen: "",
+    estado: "DISPONIBLE",
+    descripcion: "",
+    fecha_adquision: "",
+    costo_adquision: "",
+    tipo_constancia: "",
+    nro_constancia: "",
+    lugar_id: "",
+    marca_id: "",
+    proveedor_id: "",
+  });
+
+  // Estados para manejo de imagen
+  const [imagenArchivo, setImagenArchivo] = useState<File | null>(null);
+  const [imagenPreview, setImagenPreview] = useState<string>("");
+  const [subiendoImagen, setSubiendoImagen] = useState(false);
+
+  // Estados para campos específicos de cada tipo
+  const [camposEquipoTecnologico, setCamposEquipoTecnologico] = useState({
+    modelo: "",
+    procesador: "",
+    memoria: "",
+    capacidad_disco: "",
+  });
+
+  const [camposMotorizado, setCamposMotorizado] = useState({
+    tipo_vehiculo: "",
+    motor: "",
+    chasis: "",
+    color: "",
+    anho_modelo: "",
+    placa: "",
+  });
+
+  const [camposTerreno, setCamposTerreno] = useState({
+    folio: "",
+    nro_registro: "",
+    area: "",
+    ubicacion: "",
+  });
+
+  const cargarDatosSelects = async () => {
+    try {
+      const [lugaresData, marcasData, proveedoresData] = await Promise.all([
+        lugarService.getAll(),
+        marcaService.getAll(),
+        proveedorService.getAll(),
+      ]);
+      setLugares(lugaresData || []);
+      setMarcas(marcasData || []);
+      setProveedores(proveedoresData || []);
+    } catch (error: any) {
+      console.error("Error al cargar datos:", error);
+      toast.error('Error al cargar', 'No se pudieron cargar los datos necesarios');
+      setLugares([]);
+      setMarcas([]);
+      setProveedores([]);
+    }
+  };
+
+  const cargarCodigoProximo = async (lugarId: string) => {
+    if (!lugarId) {
+      setCodigoProximo("");
+      return;
+    }
+    
+    setCargandoCodigo(true);
+    try {
+      const codigo = await activoService.getProximoCodigo(parseInt(lugarId));
+      setCodigoProximo(codigo);
+    } catch (error: any) {
+      console.error("Error al cargar código próximo:", error);
+      setCodigoProximo("");
+    } finally {
+      setCargandoCodigo(false);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    
+    // Si cambia el lugar, cargar el código próximo
+    if (name === 'lugar_id') {
+      cargarCodigoProximo(value);
+    }
+    
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleTipoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const nuevoTipo = e.target.value as TipoActivo | "";
+    setTipoActivo(nuevoTipo);
+    
+    // Si es TERRENO, limpiamos marca y proveedor
+    if (nuevoTipo === 'TERRENO') {
+      setFormData(prev => ({
+        ...prev,
+        marca_id: "",
+        proveedor_id: "",
+      }));
+    }
+  };
+
+  const handleImagenChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validar tipo de archivo
+    if (!file.type.startsWith('image/')) {
+      toast.error('Archivo inválido', 'Por favor selecciona una imagen válida');
+      return;
+    }
+
+    // Validar tamaño (máximo 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Archivo muy grande', 'La imagen no debe superar los 5MB');
+      return;
+    }
+
+    setImagenArchivo(file);
+
+    // Crear preview local
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagenPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    // Subir a Cloudinary
+    setSubiendoImagen(true);
+    try {
+      const base64 = await convertToBase64(file);
+      const result = await uploadService.uploadImage(base64 as string, 'activos-greenfield/activos');
+      
+      // Guardar la URL en el formulario
+      setFormData(prev => ({
+        ...prev,
+        imagen: result.url
+      }));
+      
+      toast.success('Imagen subida', 'La imagen se ha subido correctamente');
+    } catch (error: any) {
+      console.error('Error al subir imagen:', error);
+      toast.error('Error al subir', error.message || 'No se pudo subir la imagen');
+      setImagenArchivo(null);
+      setImagenPreview('');
+    } finally {
+      setSubiendoImagen(false);
+    }
+  };
+
+  const convertToBase64 = (file: File): Promise<string | ArrayBuffer | null> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const eliminarImagen = () => {
+    setImagenArchivo(null);
+    setImagenPreview('');
+    setFormData(prev => ({
+      ...prev,
+      imagen: ''
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
+    if (!tipoActivo) {
+      toast.error('Campo requerido', 'Debe seleccionar un tipo de activo');
+      return;
+    }
+
+    if (subiendoImagen) {
+      toast.error('Espera', 'La imagen aún se está subiendo, por favor espera');
+      return;
+    }
+
+    showLoading();
+    
+    try {
+      // Preparar datos específicos según el tipo
+      let datos_especificos: any = null;
+
+      if (tipoActivo === 'EQUIPO_TECNOLOGICO') {
+        datos_especificos = {
+          modelo: camposEquipoTecnologico.modelo || null,
+          procesador: camposEquipoTecnologico.procesador || null,
+          memoria: camposEquipoTecnologico.memoria || null,
+          capacidad_disco: camposEquipoTecnologico.capacidad_disco || null,
+        };
+      } else if (tipoActivo === 'VEHICULO' || tipoActivo === 'MAQUINARIA') {
+        datos_especificos = {
+          tipo_vehiculo: camposMotorizado.tipo_vehiculo || null,
+          motor: camposMotorizado.motor || null,
+          chasis: camposMotorizado.chasis || null,
+          color: camposMotorizado.color || null,
+          anho_modelo: camposMotorizado.anho_modelo ? parseInt(camposMotorizado.anho_modelo) : null,
+          placa: camposMotorizado.placa || null,
+        };
+      } else if (tipoActivo === 'TERRENO') {
+        datos_especificos = {
+          folio: camposTerreno.folio || null,
+          nro_registro: camposTerreno.nro_registro || null,
+          area: camposTerreno.area ? parseFloat(camposTerreno.area) : null,
+          ubicacion: camposTerreno.ubicacion || null,
+        };
+      }
+
+      const dataToSend = {
+        nombre: formData.nombre,
+        serie: formData.serie || undefined,
+        tipo_activo: tipoActivo,
+        imagen: formData.imagen || undefined,
+        estado: (formData.estado as EstadoActivo) || undefined,
+        descripcion: formData.descripcion || undefined,
+        fecha_adquision: formData.fecha_adquision || undefined,
+        costo_adquision: formData.costo_adquision ? parseFloat(formData.costo_adquision) : undefined,
+        tipo_constancia: formData.tipo_constancia || undefined,
+        nro_constancia: formData.nro_constancia || undefined,
+        lugar_id: parseInt(formData.lugar_id),
+        marca_id: formData.marca_id ? parseInt(formData.marca_id) : undefined,
+        proveedor_id: formData.proveedor_id ? parseInt(formData.proveedor_id) : undefined,
+        datos_especificos: datos_especificos,
+      };
+
+      await activoService.create(dataToSend);
+      
+      hideLoading();
+      toast.success('Activo registrado', 'El activo ha sido registrado exitosamente');
+      
+      // Redirigir a la lista
+      setTimeout(() => {
+        router.push('/admin/activos/lista');
+      }, 1500);
+      
+    } catch (error: any) {
+      console.error("Error al registrar activo:", error);
+      hideLoading();
+      toast.error('Error al registrar', error.message || 'No se pudo registrar el activo');
+    }
+  };
+
+  const tiposActivos: TipoActivo[] = [
+    'EDIFICACION',
+    'ELECTRODOMESTICO',
+    'EQUIPO_CAMPO',
+    'HERRAMIENTA',
+    'MUEBLE_ENSER',
+    'UTENSILIO_EQUIPAMIENTO',
+    'EQUIPO_TECNOLOGICO',
+    'VEHICULO',
+    'MAQUINARIA',
+    'TERRENO',
+  ];
+
+  const mostrarMarcaProveedor = tipoActivo && requiereMarcaProveedor(tipoActivo as TipoActivo);
+  const esSimple = tipoActivo && esActivoSimple(tipoActivo as TipoActivo);
+
+  return (
+    <>
+      <Breadcrumb
+        pageName="Registro de Activo"
+        description="Añade un nuevo activo al sistema"
+      />
+
+      <section className="pb-16 pt-4">
+        <div className="container">
+          <div className="-mx-4 flex flex-wrap justify-center">
+            <div className="w-full px-4 lg:w-10/12 xl:w-9/12">
+              <div className="rounded-2xl border border-black/5 dark:border-white/5 bg-white/60 dark:bg-black/40 backdrop-blur-md p-6 sm:p-8 shadow-sm mb-6">
+                <h2 className="mb-6 text-xl font-bold text-black dark:text-white">
+                  Registrar Nuevo Activo
+                </h2>
+
+                <form onSubmit={handleSubmit}>
+                  {/* SECCIÓN 1: TIPO DE ACTIVO */}
+                  <div className="mb-8 p-6 rounded-2xl border border-black/5 dark:border-white/5 bg-white/80 dark:bg-black/40 backdrop-blur-md p-5 shadow-sm">
+                    <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-black/70 dark:text-white/70 border-b border-black/5 dark:border-white/5 pb-2">
+                      1. Tipo de Activo
+                    </h3>
+                    <div>
+                      <label
+                        htmlFor="tipo_activo"
+                        className="mb-1.5 block text-xs font-bold text-dark dark:text-white"
+                      >
+                        Seleccione el Tipo de Activo <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        id="tipo_activo"
+                        value={tipoActivo}
+                        onChange={handleTipoChange}
+                        required
+                        className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                      >
+                        <option value="">-- Seleccione un tipo --</option>
+                        <option value="EDIFICACION">{getNombreTipoActivo('EDIFICACION')}</option>
+                        <option value="ELECTRODOMESTICO">{getNombreTipoActivo('ELECTRODOMESTICO')}</option>
+                        <option value="EQUIPO_CAMPO">{getNombreTipoActivo('EQUIPO_CAMPO')}</option>
+                        <option value="HERRAMIENTA">{getNombreTipoActivo('HERRAMIENTA')}</option>
+                        <option value="MUEBLE_ENSER">{getNombreTipoActivo('MUEBLE_ENSER')}</option>
+                        <option value="UTENSILIO_EQUIPAMIENTO">{getNombreTipoActivo('UTENSILIO_EQUIPAMIENTO')}</option>
+                        <option value="EQUIPO_TECNOLOGICO">{getNombreTipoActivo('EQUIPO_TECNOLOGICO')}</option>
+                        <option value="VEHICULO">{getNombreTipoActivo('VEHICULO')}</option>
+                        <option value="MAQUINARIA">{getNombreTipoActivo('MAQUINARIA')}</option>
+                        <option value="TERRENO">{getNombreTipoActivo('TERRENO')}</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* SECCIÓN 2: CAMPOS COMUNES (solo si se seleccionó un tipo) */}
+                  {tipoActivo && (
+                    <>
+                      <div className="mb-8 p-6 rounded-2xl border border-black/5 dark:border-white/5 bg-white/80 dark:bg-black/40 backdrop-blur-md p-5 shadow-sm">
+                        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-black/70 dark:text-white/70 border-b border-black/5 dark:border-white/5 pb-2">
+                          2. Información Básica
+                        </h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Serie */}
+                          <div>
+                            <label
+                              htmlFor="serie"
+                              className="mb-1.5 block text-xs font-bold text-dark dark:text-white"
+                            >
+                              Nro. de Serie
+                            </label>
+                            <input
+                              type="text"
+                              name="serie"
+                              id="serie"
+                              value={formData.serie}
+                              onChange={handleChange}
+                              placeholder="Ej: SN-12345678"
+                              className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                            />
+                          </div>
+
+                          {/* Nombre */}
+                          <div>
+                            <label
+                              htmlFor="nombre"
+                              className="mb-1.5 block text-xs font-bold text-dark dark:text-white"
+                            >
+                              Nombre del Activo <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              name="nombre"
+                              id="nombre"
+                              value={formData.nombre}
+                              onChange={handleChange}
+                              placeholder="Ej: Laptop Dell Inspiron"
+                              required
+                              className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                            />
+                          </div>
+
+                          {/* Estado */}
+                          <div>
+                            <label
+                              htmlFor="estado"
+                              className="mb-1.5 block text-xs font-bold text-dark dark:text-white"
+                            >
+                              Estado
+                            </label>
+                            <select
+                              name="estado"
+                              id="estado"
+                              value={formData.estado}
+                              onChange={handleChange}
+                              className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                            >
+                              <option value="NUEVO">{getNombreEstadoActivo('NUEVO')}</option>
+                              <option value="USADO">{getNombreEstadoActivo('USADO')}</option>
+                              <option value="DISPONIBLE">{getNombreEstadoActivo('DISPONIBLE')}</option>
+                              <option value="DANADO">{getNombreEstadoActivo('DANADO')}</option>
+                              <option value="DONADO">{getNombreEstadoActivo('DONADO')}</option>
+                              <option value="VENDIDO">{getNombreEstadoActivo('VENDIDO')}</option>
+                              <option value="TRANSFERIR">{getNombreEstadoActivo('TRANSFERIR')}</option>
+                            </select>
+                          </div>
+
+                          {/* Lugar */}
+                          <div>
+                            <ComboboxCreator
+                              label="Lugar"
+                              placeholder="-- Seleccione un lugar --"
+                              value={formData.lugar_id}
+                              options={lugares}
+                              type="lugar"
+                              required
+                              onChange={(val) => {
+                                setFormData(prev => ({ ...prev, lugar_id: val }));
+                                cargarCodigoProximo(val);
+                              }}
+                              onCreated={cargarDatosSelects}
+                            />
+                            
+                            {/* Mostrar código que se generará */}
+                            {codigoProximo && (
+                              <div className="mt-3 rounded-md bg-blue-50 dark:bg-blue-900/20 p-3">
+                                <p className="text-sm text-blue-800 dark:text-blue-400">
+                                  <strong>Código que se asignará:</strong> {codigoProximo}
+                                </p>
+                              </div>
+                            )}
+                            
+                            {cargandoCodigo && (
+                              <div className="mt-3">
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                  Cargando código...
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Marca (solo si aplica) */}
+                          {mostrarMarcaProveedor && (
+                            <div>
+                              <ComboboxCreator
+                                 label="Marca"
+                                 placeholder="-- Seleccione una marca --"
+                                 value={formData.marca_id}
+                                 options={marcas}
+                                 type="marca"
+                                 onChange={(val) => setFormData(prev => ({ ...prev, marca_id: val }))}
+                                 onCreated={cargarDatosSelects}
+                               />
+                            </div>
+                          )}
+
+                          {/* Proveedor (solo si aplica) */}
+                          {mostrarMarcaProveedor && (
+                            <div>
+                              <ComboboxCreator
+                                 label="Proveedor"
+                                 placeholder="-- Seleccione un proveedor --"
+                                 value={formData.proveedor_id}
+                                 options={proveedores}
+                                 type="proveedor"
+                                 onChange={(val) => setFormData(prev => ({ ...prev, proveedor_id: val }))}
+                                 onCreated={cargarDatosSelects}
+                               />
+                            </div>
+                          )}
+
+                          {/* Fecha de Adquisición */}
+                          <div>
+                            <label
+                              htmlFor="fecha_adquision"
+                              className="mb-1.5 block text-xs font-bold text-dark dark:text-white"
+                            >
+                              Fecha de Adquisición
+                            </label>
+                            <input
+                              type="date"
+                              name="fecha_adquision"
+                              id="fecha_adquision"
+                              value={formData.fecha_adquision}
+                              onChange={handleChange}
+                              className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                            />
+                          </div>
+
+                          {/* Costo de Adquisición */}
+                          <div>
+                            <label
+                              htmlFor="costo_adquision"
+                              className="mb-1.5 block text-xs font-bold text-dark dark:text-white"
+                            >
+                              Costo de Adquisición (S/)
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              name="costo_adquision"
+                              id="costo_adquision"
+                              value={formData.costo_adquision}
+                              onChange={handleChange}
+                              placeholder="0.00"
+                              className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                            />
+                          </div>
+
+                          {/* Imagen */}
+                          <div className="md:col-span-2">
+                            <label
+                              htmlFor="imagen"
+                              className="mb-1.5 block text-xs font-bold text-dark dark:text-white"
+                            >
+                              Imagen del Activo
+                            </label>
+                            
+                            {!imagenPreview ? (
+                              <div className="flex flex-col items-center justify-center w-full">
+                                <label
+                                  htmlFor="imagen-upload"
+                                  className="flex flex-col items-center justify-center w-full h-48 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 dark:border-gray-600"
+                                >
+                                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                    {subiendoImagen ? (
+                                      <>
+                                        <svg className="w-10 h-10 mb-3 text-primary animate-spin" fill="none" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">Subiendo imagen...</p>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <svg className="w-10 h-10 mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                        </svg>
+                                        <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
+                                          <span className="font-semibold">Click para subir</span> o arrastra la imagen
+                                        </p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, JPEG (MAX. 5MB)</p>
+                                      </>
+                                    )}
+                                  </div>
+                                  <input
+                                    id="imagen-upload"
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImagenChange}
+                                    disabled={subiendoImagen}
+                                    className="hidden"
+                                  />
+                                </label>
+                              </div>
+                            ) : (
+                              <div className="relative">
+                                <img
+                                  src={imagenPreview}
+                                  alt="Preview"
+                                  className="w-full h-64 object-cover rounded-lg border-2 border-gray-300 dark:border-gray-600"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={eliminarImagen}
+                                  className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-2 shadow-lg transition-all"
+                                  title="Eliminar imagen"
+                                >
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                  ✓ Imagen subida correctamente
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Descripción */}
+                          <div className="md:col-span-2">
+                            <label
+                              htmlFor="descripcion"
+                              className="mb-1.5 block text-xs font-bold text-dark dark:text-white"
+                            >
+                              Descripción
+                            </label>
+                            <textarea
+                              name="descripcion"
+                              id="descripcion"
+                              rows={3}
+                              value={formData.descripcion}
+                              onChange={handleChange}
+                              placeholder="Describe el activo..."
+                              className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                            />
+                          </div>
+
+                          {/* Constancias */}
+                          <div>
+                            <label
+                              htmlFor="tipo_constancia"
+                              className="mb-1.5 block text-xs font-bold text-dark dark:text-white"
+                            >
+                              Tipo de Constancia
+                            </label>
+                            <select
+                              name="tipo_constancia"
+                              id="tipo_constancia"
+                              value={formData.tipo_constancia}
+                              onChange={handleChange}
+                              className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                            >
+                              <option value="">Seleccionar...</option>
+                              <option value="FACTURA">Factura</option>
+                              <option value="PROFORMA">Proforma</option>
+                              <option value="RECIBO">Recibo</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label
+                              htmlFor="nro_constancia"
+                              className="mb-1.5 block text-xs font-bold text-dark dark:text-white"
+                            >
+                              Número de Constancia
+                            </label>
+                            <input
+                              type="text"
+                              name="nro_constancia"
+                              id="nro_constancia"
+                              value={formData.nro_constancia}
+                              onChange={handleChange}
+                              placeholder="Ej: 001-001234"
+                              className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* SECCIÓN 3: CAMPOS ESPECÍFICOS */}
+                      {!esSimple && (
+                        <div className="mb-8 p-6 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                          <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-black/70 dark:text-white/70 border-b border-black/5 dark:border-white/5 pb-2">
+                            3. Información Específica - {getNombreTipoActivo(tipoActivo as TipoActivo)}
+                          </h3>
+
+                          {/* Campos para EQUIPO_TECNOLOGICO */}
+                          {tipoActivo === 'EQUIPO_TECNOLOGICO' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div>
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  Modelo
+                                </label>
+                                <input
+                                  type="text"
+                                  value={camposEquipoTecnologico.modelo}
+                                  onChange={(e) => setCamposEquipoTecnologico({...camposEquipoTecnologico, modelo: e.target.value})}
+                                  placeholder="Ej: Inspiron 15"
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  Procesador
+                                </label>
+                                <input
+                                  type="text"
+                                  value={camposEquipoTecnologico.procesador}
+                                  onChange={(e) => setCamposEquipoTecnologico({...camposEquipoTecnologico, procesador: e.target.value})}
+                                  placeholder="Ej: Intel Core i5"
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  Memoria (RAM)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={camposEquipoTecnologico.memoria}
+                                  onChange={(e) => setCamposEquipoTecnologico({...camposEquipoTecnologico, memoria: e.target.value})}
+                                  placeholder="Ej: 8GB DDR4"
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  Capacidad de Disco
+                                </label>
+                                <input
+                                  type="text"
+                                  value={camposEquipoTecnologico.capacidad_disco}
+                                  onChange={(e) => setCamposEquipoTecnologico({...camposEquipoTecnologico, capacidad_disco: e.target.value})}
+                                  placeholder="Ej: 512GB SSD"
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Campos para VEHICULO y MAQUINARIA */}
+                          {(tipoActivo === 'VEHICULO' || tipoActivo === 'MAQUINARIA') && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div>
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  Tipo de Vehículo
+                                </label>
+                                <input
+                                  type="text"
+                                  value={camposMotorizado.tipo_vehiculo}
+                                  onChange={(e) => setCamposMotorizado({...camposMotorizado, tipo_vehiculo: e.target.value})}
+                                  placeholder="Ej: Camioneta, Sedan"
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  Motor
+                                </label>
+                                <input
+                                  type="text"
+                                  value={camposMotorizado.motor}
+                                  onChange={(e) => setCamposMotorizado({...camposMotorizado, motor: e.target.value})}
+                                  placeholder="Ej: XYZ123456"
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  Chasis
+                                </label>
+                                <input
+                                  type="text"
+                                  value={camposMotorizado.chasis}
+                                  onChange={(e) => setCamposMotorizado({...camposMotorizado, chasis: e.target.value})}
+                                  placeholder="Ej: ABC789012"
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  Color
+                                </label>
+                                <input
+                                  type="text"
+                                  value={camposMotorizado.color}
+                                  onChange={(e) => setCamposMotorizado({...camposMotorizado, color: e.target.value})}
+                                  placeholder="Ej: Rojo"
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  Año del Modelo
+                                </label>
+                                <input
+                                  type="number"
+                                  value={camposMotorizado.anho_modelo}
+                                  onChange={(e) => setCamposMotorizado({...camposMotorizado, anho_modelo: e.target.value})}
+                                  placeholder="Ej: 2023"
+                                  min="1900"
+                                  max="2100"
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  Placa
+                                </label>
+                                <input
+                                  type="text"
+                                  value={camposMotorizado.placa}
+                                  onChange={(e) => setCamposMotorizado({...camposMotorizado, placa: e.target.value})}
+                                  placeholder="Ej: ABC-1234"
+                                  maxLength={10}
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Campos para TERRENO */}
+                          {tipoActivo === 'TERRENO' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div>
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  Folio
+                                </label>
+                                <input
+                                  type="text"
+                                  value={camposTerreno.folio}
+                                  onChange={(e) => setCamposTerreno({...camposTerreno, folio: e.target.value})}
+                                  placeholder="Ej: F-001"
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  Número de Registro
+                                </label>
+                                <input
+                                  type="text"
+                                  value={camposTerreno.nro_registro}
+                                  onChange={(e) => setCamposTerreno({...camposTerreno, nro_registro: e.target.value})}
+                                  placeholder="Ej: REG-123456"
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  Área (m²)
+                                </label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={camposTerreno.area}
+                                  onChange={(e) => setCamposTerreno({...camposTerreno, area: e.target.value})}
+                                  placeholder="Ej: 1000.50"
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  Ubicación Detallada
+                                </label>
+                                <textarea
+                                  rows={3}
+                                  value={camposTerreno.ubicacion}
+                                  onChange={(e) => setCamposTerreno({...camposTerreno, ubicacion: e.target.value})}
+                                  placeholder="Descripción detallada de la ubicación del terreno..."
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Botones */}
+                      <div className="flex flex-wrap gap-4">
+                        <button
+                          type="submit"
+                          className="rounded-xl bg-primary hover:bg-primary/90 px-6 py-3 text-xs font-bold text-white transition-all shadow-md shadow-primary/10 cursor-pointer"
+                        >
+                          Registrar Activo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm("¿Está seguro de cancelar? Se perderán los datos ingresados.")) {
+                              router.push("/admin/activos/lista");
+                            }
+                          }}
+                          className="rounded-xl border border-stroke dark:border-gray-800 px-6 py-3 text-xs font-bold text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </form>
+
+                <div className="mt-8 rounded-xl border border-black/5 dark:border-white/5 bg-white/50 dark:bg-white/5 p-4">
+                  <p className="text-sm text-body-color dark:text-body-color-dark">
+                    <strong>Nota:</strong> Los campos marcados con{" "}
+                    <span className="text-red-500">*</span> son obligatorios.
+                    {tipoActivo === 'TERRENO' && (
+                      <span className="block mt-2">
+                        <strong>Terrenos:</strong> No requieren marca ni proveedor.
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+};
+
+export default RegistrarActivoPage;

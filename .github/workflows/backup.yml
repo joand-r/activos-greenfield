@@ -12,8 +12,8 @@ name: 🗄️ PostgreSQL Backup
 
 on:
   schedule:
-    # Todos los domingos a las 03:00 AM UTC
-    - cron: '0 3 * * 0'
+    # El 1 y 15 de cada mes a las 03:00 AM UTC (aproximadamente cada 15 días)
+    - cron: '0 3 1,15 * *'
 
   # Permite ejecutar manualmente desde la pestaña Actions
   workflow_dispatch:

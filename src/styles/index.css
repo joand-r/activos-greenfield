@@ -1,0 +1,155 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: "Inter", sans-serif;
+  }
+}
+
+@layer components {
+  input[type="checkbox"]:checked ~ label span svg {
+    @apply inline-flex;
+  }
+
+  .sticky .header-logo {
+    @apply py-5 lg:py-2;
+  }
+
+  .sticky .menu-scroll.active {
+    @apply opacity-70;
+  }
+
+  input#togglePlan:checked ~ .dot {
+    @apply translate-x-full;
+  }
+
+  input#checkboxLabel:checked ~ .box span {
+    @apply opacity-100;
+  }
+
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes scaleIn {
+    from {
+      transform: scale(0.9);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .animate-slideIn {
+    animation: slideIn 0.3s ease-out;
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  .animate-scaleIn {
+    animation: scaleIn 0.2s ease-out;
+  }
+
+  @keyframes toastProgress {
+    from {
+      width: 100%;
+    }
+    to {
+      width: 0%;
+    }
+  }
+
+  .animate-toastProgress {
+    animation: toastProgress linear forwards;
+  }
+
+  /* Ocultar barra de desplazamiento */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Estilos Premium Globales para Contenedores, Tablas e Inputs */
+  .shadow-three {
+    @apply rounded-2xl border border-black/5 dark:border-white/5 bg-white/60 dark:bg-black/40 backdrop-blur-md shadow-sm transition-all duration-300 !important;
+  }
+
+  /* Rediseño de inputs, select y textarea globales */
+  input, select, textarea {
+    @apply rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 text-xs text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all;
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* Ajuste de Tablas de NextJS a diseño Premium */
+  table {
+    @apply w-full border-collapse !important;
+  }
+
+  thead tr {
+    @apply bg-gray-50/70 dark:bg-gray-900/30 border-b border-black/5 dark:border-white/5 text-left text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider !important;
+  }
+
+  tbody tr {
+    @apply border-b border-black/5 dark:border-white/5 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors text-xs !important;
+  }
+
+  th, td {
+    @apply px-6 py-4 border-b border-black/5 dark:border-white/5 !important;
+  }
+
+  /* Modales Globales Premium Glassmorphism */
+  .modal-glass {
+    @apply relative w-full max-w-lg rounded-2xl bg-white/95 dark:bg-black/95 border border-black/5 dark:border-white/5 backdrop-blur-md shadow-2xl overflow-hidden animate-scaleIn !important;
+  }
+
+  /* Buscador del Sidebar padding */
+  input.sidebar-search {
+    padding-left: 2.5rem !important;
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+
+  /* Contraste de opciones de select en modo claro y oscuro */
+  select option {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+  
+  .dark select option,
+  .dark select optgroup,
+  html.dark select option,
+  body.dark select option {
+    background-color: #1e232e !important;
+    color: #ffffff !important;
+  }
+}
