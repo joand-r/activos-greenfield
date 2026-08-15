@@ -375,25 +375,6 @@ const RegistrarActivoPage = () => {
                         </h3>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          {/* Serie */}
-                          <div>
-                            <label
-                              htmlFor="serie"
-                              className="mb-1.5 block text-xs font-bold text-dark dark:text-white"
-                            >
-                              Nro. de Serie
-                            </label>
-                            <input
-                              type="text"
-                              name="serie"
-                              id="serie"
-                              value={formData.serie}
-                              onChange={handleChange}
-                              placeholder="Ej: SN-12345678"
-                              className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
-                            />
-                          </div>
-
                           {/* Nombre */}
                           <div>
                             <label
@@ -537,6 +518,25 @@ const RegistrarActivoPage = () => {
                               value={formData.costo_adquision}
                               onChange={handleChange}
                               placeholder="0.00"
+                              className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                            />
+                          </div>
+
+                          {/* Serie */}
+                          <div>
+                            <label
+                              htmlFor="serie"
+                              className="mb-1.5 block text-xs font-bold text-dark dark:text-white"
+                            >
+                              Nro. de Serie
+                            </label>
+                            <input
+                              type="text"
+                              name="serie"
+                              id="serie"
+                              value={formData.serie}
+                              onChange={handleChange}
+                              placeholder="Ej: SN-12345678"
                               className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
                             />
                           </div>

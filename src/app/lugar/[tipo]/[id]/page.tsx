@@ -3,7 +3,12 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Breadcrumb from "@/components/ui/Common/Breadcrumb";
-import { activoService, Activo } from "@/services/activo.service";
+import { 
+  activoService, 
+  Activo, 
+  getNombreTipoActivo, 
+  getNombreEstadoActivo 
+} from "@/services/activo.service";
 import { lugarService } from "@/services/lugar.service";
 import Link from "next/link";
 
@@ -69,13 +74,14 @@ export default function LugarDetallesPage() {
     // Agrupar por estado
     const porEstado: {[key: string]: number} = {};
     articulos.forEach(art => {
-      porEstado[art.estado] = (porEstado[art.estado] || 0) + 1;
+      const est = art.estado ? getNombreEstadoActivo(art.estado) : 'N/A';
+      porEstado[est] = (porEstado[est] || 0) + 1;
     });
     
     // Agrupar por categoría
     const porCategoria: {[key: string]: number} = {};
     articulos.forEach(art => {
-      const cat = art.tipo_activo || 'Sin tipo';
+      const cat = art.tipo_activo ? getNombreTipoActivo(art.tipo_activo) : 'Sin tipo';
       porCategoria[cat] = (porCategoria[cat] || 0) + 1;
     });
     
@@ -184,10 +190,21 @@ export default function LugarDetallesPage() {
             font-size: 10px;
             margin-bottom: 3px;
           }
-          .item-details {
-            color: #666;
+          .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
             font-size: 8px;
+            font-weight: bold;
+            text-transform: uppercase;
           }
+          .badge-nuevo { background: #e0f2fe; color: #0369a1; }
+          .badge-usado { background: #fef3c7; color: #d97706; }
+          .badge-disponible { background: #dcfce7; color: #15803d; }
+          .badge-danado { background: #fee2e2; color: #b91c1c; }
+          .badge-donado { background: #f3e8ff; color: #6b21a8; }
+          .badge-vendido { background: #f3f4f6; color: #374151; }
+          .badge-transferir { background: #e0e7ff; color: #4338ca; }
           table {
             width: 100%;
             border-collapse: collapse;
@@ -301,18 +318,34 @@ export default function LugarDetallesPage() {
         </table>
         
         <div class="section-title">Listado Completo de Artículos</div>
-        <div class="items-grid">
-          ${articulos.map(art => `
-            <div class="item-card">
-              <div class="item-code">${art.codigo}</div>
-              <div class="item-name">${art.nombre}</div>
-              <div class="item-details">
-                Estado: ${art.estado}<br>
-                Tipo: ${art.tipo_activo || 'N/A'} | Marca: ${art.marca_nombre || 'N/A'}
-              </div>
-            </div>
-          `).join('')}
-        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 15%;">Código</th>
+              <th style="width: 35%;">Nombre</th>
+              <th style="width: 20%;">Tipo de Activo</th>
+              <th style="width: 15%; text-align: right;">Costo</th>
+              <th style="width: 15%; text-align: center;">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${articulos.map(art => `
+              <tr>
+                <td style="font-family: monospace; font-weight: bold;">${art.codigo}</td>
+                <td>${art.nombre}</td>
+                <td>${art.tipo_activo ? getNombreTipoActivo(art.tipo_activo) : 'N/A'}</td>
+                <td style="text-align: right;">
+                  ${art.costo_adquision ? Number(art.costo_adquision).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Bs.' : 'N/A'}
+                </td>
+                <td style="text-align: center;">
+                  <span class="badge badge-${(art.estado || 'disponible').toLowerCase()}">
+                    ${art.estado ? getNombreEstadoActivo(art.estado) : 'Disponible'}
+                  </span>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
         
         <div class="footer">
           <p>Activos Greenfield - Sistema de Gestión de Inventario</p>
@@ -503,7 +536,7 @@ export default function LugarDetallesPage() {
                     <div className="space-y-1.5 mb-4 text-xs">
                       <div className="flex items-center justify-between">
                         <span className="text-body-color dark:text-gray-400">Tipo:</span>
-                        <span className="font-semibold text-black dark:text-white">{articulo.tipo_activo || 'N/A'}</span>
+                        <span className="font-semibold text-black dark:text-white">{articulo.tipo_activo ? getNombreTipoActivo(articulo.tipo_activo) : 'N/A'}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-body-color dark:text-gray-400">Marca:</span>
