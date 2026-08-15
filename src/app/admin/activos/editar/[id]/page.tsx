@@ -234,8 +234,10 @@ const EditarActivoPage = () => {
     // Subir a Cloudinary
     setSubiendoImagen(true);
     try {
-      const base64 = await convertToBase64(file);
-      const result = await uploadService.uploadImage(base64 as string, 'activos-greenfield/activos');
+      // Compresión en el cliente
+      const { compressImage } = await import('@/lib/image');
+      const base64 = await compressImage(file);
+      const result = await uploadService.uploadImage(base64, 'activos-greenfield/activos');
       
       // Guardar la URL en el formulario
       setFormData(prev => ({

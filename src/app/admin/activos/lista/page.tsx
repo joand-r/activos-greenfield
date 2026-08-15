@@ -166,10 +166,9 @@ const ListaActivosPage = () => {
     reader.readAsDataURL(file);
     setEditSubiendoImagen(true);
     try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const r = new FileReader(); r.readAsDataURL(file);
-        r.onload = () => resolve(r.result as string); r.onerror = reject;
-      });
+      // Compresión en el cliente
+      const { compressImage } = await import('@/lib/image');
+      const base64 = await compressImage(file);
       const result = await uploadService.uploadImage(base64, 'activos-greenfield/activos');
       setEditFormData(prev => ({ ...prev, imagen: result.url }));
       toast.success('Imagen subida', 'La imagen se ha subido correctamente');
