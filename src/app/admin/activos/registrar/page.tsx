@@ -304,7 +304,8 @@ const RegistrarActivoPage = () => {
     'ELECTRODOMESTICO',
     'EQUIPO_CAMPO',
     'HERRAMIENTA',
-    'MUEBLE_ENSER',
+    'MUEBLES_OFICINA',
+    'MUEBLES_HOGAR',
     'UTENSILIO_EQUIPAMIENTO',
     'EQUIPO_TECNOLOGICO',
     'VEHICULO',
@@ -356,7 +357,8 @@ const RegistrarActivoPage = () => {
                         <option value="ELECTRODOMESTICO">{getNombreTipoActivo('ELECTRODOMESTICO')}</option>
                         <option value="EQUIPO_CAMPO">{getNombreTipoActivo('EQUIPO_CAMPO')}</option>
                         <option value="HERRAMIENTA">{getNombreTipoActivo('HERRAMIENTA')}</option>
-                        <option value="MUEBLE_ENSER">{getNombreTipoActivo('MUEBLE_ENSER')}</option>
+                        <option value="MUEBLES_OFICINA">{getNombreTipoActivo('MUEBLES_OFICINA')}</option>
+                        <option value="MUEBLES_HOGAR">{getNombreTipoActivo('MUEBLES_HOGAR')}</option>
                         <option value="UTENSILIO_EQUIPAMIENTO">{getNombreTipoActivo('UTENSILIO_EQUIPAMIENTO')}</option>
                         <option value="EQUIPO_TECNOLOGICO">{getNombreTipoActivo('EQUIPO_TECNOLOGICO')}</option>
                         <option value="VEHICULO">{getNombreTipoActivo('VEHICULO')}</option>

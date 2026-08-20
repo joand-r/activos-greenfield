@@ -5,7 +5,8 @@ export type TipoActivo =
   | 'ELECTRODOMESTICO'
   | 'EQUIPO_CAMPO'
   | 'HERRAMIENTA'
-  | 'MUEBLE_ENSER'
+  | 'MUEBLES_OFICINA'
+  | 'MUEBLES_HOGAR'
   | 'UTENSILIO_EQUIPAMIENTO'
   | 'EQUIPO_TECNOLOGICO'
   | 'VEHICULO'
@@ -101,7 +102,8 @@ export const getNombreTipoActivo = (tipo: TipoActivo): string => {
     ELECTRODOMESTICO: 'Electrodoméstico',
     EQUIPO_CAMPO: 'Equipo de Campo',
     HERRAMIENTA: 'Herramienta',
-    MUEBLE_ENSER: 'Muebles y Enseres',
+    MUEBLES_OFICINA: 'Muebles de Oficina',
+    MUEBLES_HOGAR: 'Muebles de Hogar',
     UTENSILIO_EQUIPAMIENTO: 'Utensilio y Equipamiento',
     EQUIPO_TECNOLOGICO: 'Equipo Tecnológico',
     VEHICULO: 'Vehículo',
@@ -118,7 +120,8 @@ export const esActivoSimple = (tipo: TipoActivo): boolean => {
     'ELECTRODOMESTICO',
     'EQUIPO_CAMPO',
     'HERRAMIENTA',
-    'MUEBLE_ENSER',
+    'MUEBLES_OFICINA',
+    'MUEBLES_HOGAR',
     'UTENSILIO_EQUIPAMIENTO',
   ];
   return simples.includes(tipo);
