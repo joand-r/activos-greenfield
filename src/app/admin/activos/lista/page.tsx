@@ -4,7 +4,21 @@ import Breadcrumb from "@/components/ui/Common/Breadcrumb";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useLoading } from "@/contexts/LoadingContext";
-import { activoService, Activo, TipoActivo, EstadoActivo, TipoConstancia, getNombreTipoActivo, getNombreEstadoActivo, getNombreTipoConstancia, esActivoSimple, requiereMarcaProveedor } from "@/services/activo.service";
+import { 
+  activoService, 
+  Activo, 
+  TipoActivo, 
+  ClasificacionActivo,
+  EstadoActivo, 
+  TipoConstancia, 
+  getNombreTipoActivo, 
+  getNombreEstadoActivo, 
+  getNombreTipoConstancia, 
+  getNombreClasificacion,
+  getColorClasificacion,
+  esActivoSimple, 
+  requiereMarcaProveedor 
+} from "@/services/activo.service";
 import { lugarService, Lugar } from "@/services/lugar.service";
 import { marcaService, Marca } from "@/services/marca.service";
 import { proveedorService, Proveedor } from "@/services/proveedor.service";
@@ -20,6 +34,7 @@ const ListaActivosPage = () => {
   const [activos, setActivos] = useState<Activo[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<TipoActivo | "">("");
+  const [filtroClasificacion, setFiltroClasificacion] = useState<ClasificacionActivo | "">("");
   const [vista, setVista] = useState<'servicio' | 'bajas' | 'transferidos' | 'todos'>('servicio');
   const [error, setError] = useState("");
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -35,7 +50,7 @@ const ListaActivosPage = () => {
   const [editMarcas, setEditMarcas] = useState<Marca[]>([]);
   const [editProveedores, setEditProveedores] = useState<Proveedor[]>([]);
   const [editFormData, setEditFormData] = useState({
-    nombre: '', imagen: '', estado: 'DISPONIBLE', descripcion: '',
+    nombre: '', clasificacion: 'FIJO' as ClasificacionActivo, imagen: '', estado: 'DISPONIBLE', descripcion: '',
     fecha_adquision: '', costo_adquision: '', tipo_constancia: '',
     nro_constancia: '', lugar_id: '', marca_id: '', proveedor_id: '',
   });
@@ -115,6 +130,7 @@ const ListaActivosPage = () => {
       const activo = await activoService.getById(activoSeleccionado.id);
       setEditFormData({
         nombre: activo.nombre || '',
+        clasificacion: (activo.clasificacion || 'FIJO') as ClasificacionActivo,
         imagen: activo.imagen || '',
         estado: activo.estado || 'DISPONIBLE',
         descripcion: activo.descripcion || '',
@@ -194,6 +210,7 @@ const ListaActivosPage = () => {
       }
       await activoService.update(activoSeleccionado.id, {
         nombre: editFormData.nombre,
+        clasificacion: editFormData.clasificacion,
         imagen: editFormData.imagen || undefined,
         estado: (editFormData.estado as EstadoActivo) || undefined,
         descripcion: editFormData.descripcion || undefined,
@@ -240,8 +257,9 @@ const ListaActivosPage = () => {
       activo.codigo?.toLowerCase().includes(busqueda.toLowerCase());
     
     const cumpleTipo = !filtroTipo || activo.tipo_activo === filtroTipo;
+    const cumpleClasificacion = !filtroClasificacion || activo.clasificacion === filtroClasificacion;
     
-    return cumpleBusqueda && cumpleTipo;
+    return cumpleBusqueda && cumpleTipo && cumpleClasificacion;
   });
 
   const tiposActivos: TipoActivo[] = [
@@ -359,7 +377,7 @@ const ListaActivosPage = () => {
             <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-body-color/70">
               Filtros
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="mb-2 block text-xs font-bold text-black dark:text-white">
                   Buscar por nombre o código
@@ -387,6 +405,20 @@ const ListaActivosPage = () => {
                       {getNombreTipoActivo(tipo)}
                     </option>
                   ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-2 block text-xs font-bold text-black dark:text-white">
+                  Filtrar por clasificación
+                </label>
+                <select
+                  value={filtroClasificacion}
+                  onChange={(e) => setFiltroClasificacion(e.target.value as ClasificacionActivo | "")}
+                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                >
+                  <option value="">Todas las clasificaciones</option>
+                  <option value="FIJO">Activo Fijo</option>
+                  <option value="MENOR">Activo Menor</option>
                 </select>
               </div>
             </div>
@@ -430,6 +462,9 @@ const ListaActivosPage = () => {
                       Tipo
                     </th>
                     <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-wider text-black dark:text-white">
+                      Clasificación
+                    </th>
+                    <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-wider text-black dark:text-white">
                       Estado
                     </th>
                     <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-wider text-black dark:text-white">
@@ -455,6 +490,11 @@ const ListaActivosPage = () => {
                       <td className="px-6 py-4">
                         <span className="inline-flex items-center rounded-xl bg-primary/10 px-3 py-1 text-[10px] font-bold text-primary">
                           {getNombreTipoActivo(activo.tipo_activo)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center rounded-xl px-2.5 py-1 text-[10px] font-bold border ${getColorClasificacion(activo.clasificacion)}`}>
+                          {getNombreClasificacion(activo.clasificacion)}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -619,12 +659,22 @@ const ListaActivosPage = () => {
                   {/* Sección Información Básica */}
                   <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 p-4">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Información Básica</h4>
-                    <div>
-                      <label className="mb-2 block text-xs font-semibold text-gray-600 dark:text-gray-400">Nombre <span className="text-red-500">*</span></label>
-                      <input type="text" name="nombre" value={editFormData.nombre} onChange={handleEditChange} required placeholder="Nombre del activo"
-                        className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold text-gray-600 dark:text-gray-400">Nombre <span className="text-red-500">*</span></label>
+                        <input type="text" name="nombre" value={editFormData.nombre} onChange={handleEditChange} required placeholder="Nombre del activo"
+                          className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary" />
+                      </div>
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold text-gray-600 dark:text-gray-400">Clasificación <span className="text-red-500">*</span></label>
+                        <select name="clasificacion" value={editFormData.clasificacion} onChange={handleEditChange}
+                          className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary">
+                          <option value="FIJO">Activo Fijo</option>
+                          <option value="MENOR">Activo Menor</option>
+                        </select>
+                      </div>
                     </div>
-                    <div className="mt-3">
+                    <div>
                       <label className="mb-2 block text-xs font-semibold text-gray-600 dark:text-gray-400">Descripción</label>
                       <textarea name="descripcion" rows={2} value={editFormData.descripcion} onChange={handleEditChange} placeholder="Descripción..."
                         className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary" />
@@ -843,10 +893,16 @@ const ListaActivosPage = () => {
                     <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Nombre</p>
                     <p className="text-sm font-medium text-black dark:text-white mt-0.5">{activoSeleccionado.nombre}</p>
                   </div>
-                  <div className="col-span-2">
+                  <div>
                     <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Tipo de Activo</p>
                     <span className="mt-0.5 inline-flex items-center rounded-full bg-primary/10 px-3 py-0.5 text-xs font-medium text-primary">
                       {getNombreTipoActivo(activoSeleccionado.tipo_activo)}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Clasificación</p>
+                    <span className={`mt-0.5 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold border ${getColorClasificacion(activoSeleccionado.clasificacion)}`}>
+                      {getNombreClasificacion(activoSeleccionado.clasificacion)}
                     </span>
                   </div>
                 </div>

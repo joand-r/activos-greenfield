@@ -27,10 +27,15 @@ export type TipoConstancia =
   | 'PROFORMA'
   | 'RECIBO';
 
+export type ClasificacionActivo = 
+  | 'FIJO'
+  | 'MENOR';
+
 export interface Activo {
   id: number;
   nombre: string;
   tipo_activo: TipoActivo;
+  clasificacion?: ClasificacionActivo;
   codigo: string;
   serie?: string | null;
   imagen?: string | null;
@@ -81,6 +86,7 @@ export interface Terreno {
 export interface CrearActivoDTO {
   nombre: string;
   tipo_activo: TipoActivo;
+  clasificacion?: ClasificacionActivo;
   codigo?: string; // Opcional porque se genera automáticamente en el backend
   imagen?: string;
   estado?: EstadoActivo;
@@ -94,6 +100,20 @@ export interface CrearActivoDTO {
   proveedor_id?: number;
   datos_especificos?: Partial<EquipoTecnologico | Motorizado | Terreno>;
 }
+
+// Helper para obtener nombre legible de la clasificación
+export const getNombreClasificacion = (clasificacion?: ClasificacionActivo | string): string => {
+  if (clasificacion === 'MENOR') return 'Activo Menor';
+  return 'Activo Fijo';
+};
+
+// Helper para obtener estilo visual de la clasificación
+export const getColorClasificacion = (clasificacion?: ClasificacionActivo | string): string => {
+  if (clasificacion === 'MENOR') {
+    return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-300 dark:border-amber-700/50';
+  }
+  return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-300 dark:border-indigo-700/50';
+};
 
 // Helper para obtener nombre legible del tipo de activo
 export const getNombreTipoActivo = (tipo: TipoActivo): string => {
@@ -159,13 +179,14 @@ export const getNombreTipoConstancia = (tipo: TipoConstancia): string => {
 export const activoService = {
   // Obtener todos los activos
   // vista: 'servicio' (default, excluye bajas) | 'bajas' | 'transferidos' | 'todos'
-  getAll: async (params?: { tipo_activo?: TipoActivo; lugar_id?: number; vista?: 'servicio' | 'bajas' | 'transferidos' | 'todos' }): Promise<Activo[]> => {
+  getAll: async (params?: { tipo_activo?: TipoActivo; lugar_id?: number; vista?: 'servicio' | 'bajas' | 'transferidos' | 'todos'; clasificacion?: ClasificacionActivo | "" }): Promise<Activo[]> => {
     let endpoint = '/activos';
     if (params) {
       const queryParams = new URLSearchParams();
       if (params.tipo_activo) queryParams.append('tipo_activo', params.tipo_activo);
       if (params.lugar_id) queryParams.append('lugar_id', params.lugar_id.toString());
       if (params.vista) queryParams.append('vista', params.vista);
+      if (params.clasificacion) queryParams.append('clasificacion', params.clasificacion);
       if (queryParams.toString()) endpoint += `?${queryParams.toString()}`;
     }
     const response = await api.get(endpoint);

@@ -7,7 +7,9 @@ import {
   activoService, 
   Activo, 
   getNombreTipoActivo, 
-  getNombreEstadoActivo 
+  getNombreEstadoActivo,
+  getNombreClasificacion,
+  getColorClasificacion
 } from "@/services/activo.service";
 import { lugarService } from "@/services/lugar.service";
 import Link from "next/link";
@@ -321,11 +323,12 @@ export default function LugarDetallesPage() {
         <table>
           <thead>
             <tr>
-              <th style="width: 15%;">Código</th>
-              <th style="width: 35%;">Nombre</th>
-              <th style="width: 20%;">Tipo de Activo</th>
-              <th style="width: 15%; text-align: right;">Costo</th>
-              <th style="width: 15%; text-align: center;">Estado</th>
+              <th style="width: 14%;">Código</th>
+              <th style="width: 28%;">Nombre</th>
+              <th style="width: 18%;">Tipo de Activo</th>
+              <th style="width: 12%; text-align: center;">Clasificación</th>
+              <th style="width: 14%; text-align: right;">Costo</th>
+              <th style="width: 14%; text-align: center;">Estado</th>
             </tr>
           </thead>
           <tbody>
@@ -334,6 +337,9 @@ export default function LugarDetallesPage() {
                 <td style="font-family: monospace; font-weight: bold;">${art.codigo}</td>
                 <td>${art.nombre}</td>
                 <td>${art.tipo_activo ? getNombreTipoActivo(art.tipo_activo) : 'N/A'}</td>
+                <td style="text-align: center; font-weight: 600;">
+                  ${art.clasificacion === 'MENOR' ? 'A.Menor' : 'A.Fijo'}
+                </td>
                 <td style="text-align: right;">
                   ${art.costo_adquision ? Number(art.costo_adquision).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Bs.' : 'N/A'}
                 </td>
@@ -544,8 +550,11 @@ export default function LugarDetallesPage() {
                       </div>
                     </div>
 
-                    {/* Estado */}
+                    {/* Clasificación y Estado */}
                     <div className="flex items-center justify-between pt-2 border-t border-black/5 dark:border-white/5">
+                      <span className={`inline-flex items-center rounded-xl px-2 py-0.5 text-[10px] font-bold border ${getColorClasificacion(articulo.clasificacion)}`}>
+                        {getNombreClasificacion(articulo.clasificacion)}
+                      </span>
                       <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${getColorPorEstado(articulo.estado)}`}>
                         {articulo.estado}
                       </span>

@@ -11,7 +11,7 @@ import { registrarAuditoria } from '@/server/utils/auditoria';
 export const obtenerActivos = async (req, res) => {
   try {
     // vista=servicio (default): excluye bajas | vista=bajas: solo bajas | vista=todos: todos
-    const { tipo_activo, lugar_id, vista } = req.query;
+    const { tipo_activo, lugar_id, vista, clasificacion } = req.query;
     const estadosBaja = ['TRANSFERIR', 'VENDIDO', 'DONADO', 'DANADO'];
     
     let query = `
@@ -50,6 +50,12 @@ export const obtenerActivos = async (req, res) => {
     if (lugar_id) {
       query += ` AND a.lugar_id = $${paramCount}`;
       params.push(lugar_id);
+      paramCount++;
+    }
+
+    if (clasificacion) {
+      query += ` AND a.clasificacion = $${paramCount}`;
+      params.push(clasificacion);
       paramCount++;
     }
     
@@ -137,6 +143,7 @@ export const crearActivo = async (req, res) => {
     const {
       nombre,
       tipo_activo,
+      clasificacion = 'FIJO',
       serie,
       imagen,
       estado,
@@ -171,13 +178,13 @@ export const crearActivo = async (req, res) => {
     // Crear activo padre
     const activoResult = await client.query(
       `INSERT INTO activo (
-        nombre, tipo_activo, codigo, serie, imagen, estado, descripcion,
+        nombre, tipo_activo, clasificacion, codigo, serie, imagen, estado, descripcion,
         fecha_adquision, costo_adquision, tipo_constancia, nro_constancia,
         lugar_id, marca_id, proveedor_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *`,
       [
-        nombre, tipo_activo, codigo, serie || null, imagen || null,
+        nombre, tipo_activo, clasificacion || 'FIJO', codigo, serie || null, imagen || null,
         estado || null, descripcion || null, fecha_adquision || null,
         costo_adquision || null, tipo_constancia || null, nro_constancia || null,
         lugar_id, marca_id || null, proveedor_id || null
@@ -268,6 +275,7 @@ export const actualizarActivo = async (req, res) => {
     const { id } = req.params;
     const {
       nombre,
+      clasificacion,
       serie,
       imagen,
       estado,
@@ -301,12 +309,12 @@ export const actualizarActivo = async (req, res) => {
     // Actualizar activo padre
     const activoResult = await client.query(
       `UPDATE activo SET
-        nombre = $1, serie = $2, imagen = $3, estado = $4, descripcion = $5,
-        fecha_adquision = $6, costo_adquision = $7, tipo_constancia = $8,
-        nro_constancia = $9, lugar_id = $10, marca_id = $11, proveedor_id = $12
-      WHERE id = $13 RETURNING *`,
+        nombre = $1, clasificacion = COALESCE($2, clasificacion), serie = $3, imagen = $4, estado = $5, descripcion = $6,
+        fecha_adquision = $7, costo_adquision = $8, tipo_constancia = $9,
+        nro_constancia = $10, lugar_id = $11, marca_id = $12, proveedor_id = $13
+      WHERE id = $14 RETURNING *`,
       [
-        nombre, serie, imagen, estado, descripcion,
+        nombre, clasificacion || null, serie, imagen, estado, descripcion,
         fecha_adquision, costo_adquision, tipo_constancia, nro_constancia,
         lugar_id, marca_id, proveedor_id, id
       ]

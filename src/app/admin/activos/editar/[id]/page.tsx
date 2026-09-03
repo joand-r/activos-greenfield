@@ -9,6 +9,7 @@ import ConfirmModal from "@/components/ui/ConfirmModal";
 import { 
   activoService, 
   TipoActivo, 
+  ClasificacionActivo,
   EstadoActivo,
   TipoConstancia,
   getNombreTipoActivo, 
@@ -59,6 +60,7 @@ const EditarActivoPage = () => {
 
   // Estado del formulario principal
   const [tipoActivo, setTipoActivo] = useState<TipoActivo | "">("");
+  const [clasificacion, setClasificacion] = useState<ClasificacionActivo>("FIJO");
   const [codigoActivo, setCodigoActivo] = useState<string>("");
   const [formData, setFormData] = useState({
     nombre: "",
@@ -119,6 +121,7 @@ const EditarActivoPage = () => {
       
       // Pre-llenar datos básicos
       setTipoActivo(activo.tipo_activo);
+      setClasificacion(activo.clasificacion || "FIJO");
       setCodigoActivo(activo.codigo);
       setFormData({
         nombre: activo.nombre || "",
@@ -326,6 +329,7 @@ const EditarActivoPage = () => {
       const dataToSend = {
         nombre: formData.nombre,
         tipo_activo: tipoActivo,
+        clasificacion: clasificacion,
         imagen: formData.imagen || undefined,
         estado: (formData.estado as EstadoActivo) || undefined,
         descripcion: formData.descripcion || undefined,
@@ -449,10 +453,10 @@ const EditarActivoPage = () => {
                 </h2>
 
                 <form onSubmit={handleSubmit}>
-                  {/* SECCIÓN 1: TIPO DE ACTIVO Y CÓDIGO */}
+                  {/* SECCIÓN 1: TIPO, CÓDIGO Y CLASIFICACIÓN DE ACTIVO */}
                   <div className="mb-8 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                     <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-black/70 dark:text-white/70 border-b border-black/5 dark:border-white/5 pb-2">
-                      1. Tipo de Activo
+                      1. Tipo, Código y Clasificación
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
@@ -492,6 +496,52 @@ const EditarActivoPage = () => {
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                           El código es generado automáticamente y no puede ser modificado
                         </p>
+                      </div>
+
+                      {/* Clasificación de Activo (Fijo vs Menor) */}
+                      <div className="md:col-span-2">
+                        <label
+                          className="mb-1.5 block text-xs font-bold text-dark dark:text-white"
+                        >
+                          Clasificación del Activo <span className="text-red-500">*</span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <label
+                            className={`flex items-center justify-center py-2.5 px-4 rounded-xl border cursor-pointer transition-all ${
+                              clasificacion === 'FIJO'
+                                ? 'border-primary bg-primary/10 text-primary shadow-sm font-bold'
+                                : 'border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 text-dark dark:text-white opacity-80 hover:opacity-100'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="clasificacion"
+                              value="FIJO"
+                              checked={clasificacion === 'FIJO'}
+                              onChange={() => setClasificacion('FIJO')}
+                              className="w-3.5 h-3.5 text-primary mr-2"
+                            />
+                            <span className="text-xs">Activo Fijo</span>
+                          </label>
+
+                          <label
+                            className={`flex items-center justify-center py-2.5 px-4 rounded-xl border cursor-pointer transition-all ${
+                              clasificacion === 'MENOR'
+                                ? 'border-primary bg-primary/10 text-primary shadow-sm font-bold'
+                                : 'border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 text-dark dark:text-white opacity-80 hover:opacity-100'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="clasificacion"
+                              value="MENOR"
+                              checked={clasificacion === 'MENOR'}
+                              onChange={() => setClasificacion('MENOR')}
+                              className="w-3.5 h-3.5 text-primary mr-2"
+                            />
+                            <span className="text-xs">Activo Menor</span>
+                          </label>
+                        </div>
                       </div>
                     </div>
                   </div>
