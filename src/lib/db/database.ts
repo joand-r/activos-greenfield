@@ -34,9 +34,10 @@ const connectionConfig = {
   user: connStr ? undefined : (process.env.DB_USER || 'postgres'),
   password: connStr ? undefined : process.env.DB_PASSWORD,
   database: connStr ? undefined : (process.env.DB_NAME || 'activos_greenfield'),
-  max: process.env.NODE_ENV === 'production' ? 3 : 10,
-  idleTimeoutMillis: 15000, // Liberar conexiones inactivas más rápido en serverless
+  max: 20, // Soporte para múltiples consultas paralelas (Promise.all)
+  idleTimeoutMillis: 30000, // Mantener conexiones calientes
   connectionTimeoutMillis: 5000,
+  keepAlive: true,
 };
 
 if (process.env.NODE_ENV === 'production') {

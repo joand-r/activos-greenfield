@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { activoService, Activo, getNombreTipoActivo } from "@/services/activo.service";
 import { lugarService } from "@/services/lugar.service";
+import { lineaService } from "@/services/linea.service";
 
 interface Lugar {
   id: number;
@@ -25,6 +26,7 @@ export default function Home() {
   const [searchResults, setSearchResults] = useState<Activo[]>([]);
   const [loading, setLoading] = useState(false);
   const [totalActivos, setTotalActivos] = useState(0);
+  const [totalLineas, setTotalLineas] = useState(0);
   const [lugares, setLugares] = useState<Lugar[]>([]);
   const [activosPorLugar, setActivosPorLugar] = useState<{[key: number]: Activo[]}>({});
   const [tipoSeleccionado, setTipoSeleccionado] = useState<string>("todos");
@@ -72,13 +74,15 @@ export default function Home() {
 
   const cargarDatos = async () => {
     try {
-      const [lugaresData, activosData] = await Promise.all([
+      const [lugaresData, activosData, lineasStats] = await Promise.all([
         lugarService.getAll(),
-        activoService.getAll()
+        activoService.getAll(),
+        lineaService.getStats().catch(() => ({ total_lineas: 0 })),
       ]);
       
       setLugares(lugaresData || []);
       setTotalActivos((activosData || []).length);
+      setTotalLineas(lineasStats?.total_lineas || 0);
       
       // Agrupar activos por lugar
       const activosPorLugarTemp: {[key: number]: Activo[]} = {};
@@ -93,6 +97,7 @@ export default function Home() {
       console.error("Error al cargar datos:", error);
       setLugares([]);
       setTotalActivos(0);
+      setTotalLineas(0);
       setActivosPorLugar({});
     }
   };
@@ -299,7 +304,7 @@ export default function Home() {
                 </p>
 
                 {/* Tarjetas de Métricas de Diseño Innovador */}
-                <div className="grid grid-cols-3 gap-3 mb-8 max-w-[540px] mx-auto">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8 max-w-[620px] mx-auto">
                   <div className="bg-white/80 dark:bg-black/60 backdrop-blur-md border border-stroke dark:border-strokedark px-3 py-3 rounded-xl shadow-sm flex flex-col items-center hover:scale-105 transition-all duration-300">
                     <span className="text-xl font-black text-primary">{totalActivos}</span>
                     <span className="text-[9px] uppercase font-bold tracking-wider text-body-color dark:text-gray-400">Activos</span>
@@ -308,6 +313,10 @@ export default function Home() {
                     <span className="text-xl font-black text-primary">{totalLugares}</span>
                     <span className="text-[9px] uppercase font-bold tracking-wider text-body-color dark:text-gray-400">Ubicaciones</span>
                   </div>
+                  <Link href="/admin/lineas/lista" className="bg-white/80 dark:bg-black/60 backdrop-blur-md border border-stroke dark:border-strokedark px-3 py-3 rounded-xl shadow-sm flex flex-col items-center hover:scale-105 transition-all duration-300 group">
+                    <span className="text-xl font-black text-emerald-600 group-hover:text-primary transition-colors">{totalLineas}</span>
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-body-color dark:text-gray-400 group-hover:text-primary transition-colors">Líneas</span>
+                  </Link>
                   <div className="bg-white/80 dark:bg-black/60 backdrop-blur-md border border-stroke dark:border-strokedark px-3 py-3 rounded-xl shadow-sm flex flex-col items-center hover:scale-105 transition-all duration-300">
                     <span className="text-xl font-black text-primary">9</span>
                     <span className="text-[9px] uppercase font-bold tracking-wider text-body-color dark:text-gray-400">Categorías</span>
