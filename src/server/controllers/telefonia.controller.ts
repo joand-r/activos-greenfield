@@ -1,4 +1,4 @@
-﻿import { pool } from '@/lib/db/database';
+import { pool } from '@/lib/db/database';
 import { registrarAuditoria } from '@/server/utils/auditoria';
 
 export const obtenerTelefonias = async (req: any, res: any) => {
@@ -26,13 +26,12 @@ export const crearTelefonia = async (req: any, res: any) => {
     );
 
     await registrarAuditoria(client, {
-      tabla: 'telefonia',
+      tabla_afectada: 'telefonia',
       registro_id: result.rows[0].id,
-      accion: 'INSERT',
-      valores_nuevos: result.rows[0],
+      accion: 'CREAR',
+      datos_nuevos: result.rows[0],
       usuario_id: req.user?.id || req.userId || null,
-      ip: req.ip || null,
-      cliente: client,
+      ip_usuario: req.ip || null,
     });
 
     await client.query('COMMIT');
@@ -69,14 +68,13 @@ export const actualizarTelefonia = async (req: any, res: any) => {
     );
 
     await registrarAuditoria(client, {
-      tabla: 'telefonia',
+      tabla_afectada: 'telefonia',
       registro_id: parseInt(id),
-      accion: 'UPDATE',
-      valores_anteriores: prevResult.rows[0],
-      valores_nuevos: result.rows[0],
+      accion: 'ACTUALIZAR',
+      datos_anteriores: prevResult.rows[0],
+      datos_nuevos: result.rows[0],
       usuario_id: req.user?.id || req.userId || null,
-      ip: req.ip || null,
-      cliente: client,
+      ip_usuario: req.ip || null,
     });
 
     await client.query('COMMIT');
@@ -112,13 +110,12 @@ export const eliminarTelefonia = async (req: any, res: any) => {
     await client.query('DELETE FROM telefonia WHERE id = $1', [id]);
 
     await registrarAuditoria(client, {
-      tabla: 'telefonia',
+      tabla_afectada: 'telefonia',
       registro_id: parseInt(id),
-      accion: 'DELETE',
-      valores_anteriores: prevResult.rows[0],
+      accion: 'ELIMINAR',
+      datos_anteriores: prevResult.rows[0],
       usuario_id: req.user?.id || req.userId || null,
-      ip: req.ip || null,
-      cliente: client,
+      ip_usuario: req.ip || null,
     });
 
     await client.query('COMMIT');

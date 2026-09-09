@@ -37,8 +37,8 @@ export const api = {
           sessionStorage.removeItem('token');
           sessionStorage.removeItem('user');
           window.location.href = "/signin";
-          return new Promise<any>(() => {}); // Detener flujo
         }
+        throw new Error('Sesión expirada o no autenticado');
       }
       const error = await response.json().catch(() => ({ error: 'Error en la petición' }));
       throw new Error(error.error || 'Error en la petición');
@@ -59,8 +59,8 @@ export const api = {
           sessionStorage.removeItem('token');
           sessionStorage.removeItem('user');
           window.location.href = "/signin";
-          return new Promise<any>(() => {}); // Detener flujo
         }
+        throw new Error('Sesión expirada o no autenticado');
       }
       const error = await response.json().catch(() => ({ error: 'Error en la petición' }));
       throw new Error(error.error || 'Error en la petición');
@@ -81,8 +81,8 @@ export const api = {
           sessionStorage.removeItem('token');
           sessionStorage.removeItem('user');
           window.location.href = "/signin";
-          return new Promise<any>(() => {}); // Detener flujo
         }
+        throw new Error('Sesión expirada o no autenticado');
       }
       const error = await response.json().catch(() => ({ error: 'Error en la petición' }));
       throw new Error(error.error || 'Error en la petición');
@@ -102,8 +102,8 @@ export const api = {
           sessionStorage.removeItem('token');
           sessionStorage.removeItem('user');
           window.location.href = "/signin";
-          return new Promise<any>(() => {}); // Detener flujo
         }
+        throw new Error('Sesión expirada o no autenticado');
       }
       const error = await response.json().catch(() => ({ error: 'Error en la petición' }));
       throw new Error(error.error || 'Error en la petición');

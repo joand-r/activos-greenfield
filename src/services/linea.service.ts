@@ -1,4 +1,4 @@
-﻿export interface Telefonia {
+export interface Telefonia {
   id: number;
   nombre: string;
   created_at?: string;
@@ -133,6 +133,14 @@ export const getNombreEstadoPlan = (estado?: EstadoPlan | string | null): string
 // API Services
 const API_URL = '/api/lineas';
 
+const getAuthHeaders = () => {
+  const token = typeof window !== 'undefined' ? sessionStorage.getItem('token') : null;
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
+
 export const lineaService = {
   // LÍNEAS
   getAll: async (params?: { search?: string; telefonia_id?: number; estado?: string; personal_id?: number; plan_id?: number }): Promise<Linea[]> => {
@@ -143,16 +151,20 @@ export const lineaService = {
     if (params?.personal_id) query.append('personal_id', params.personal_id.toString());
     if (params?.plan_id) query.append('plan_id', params.plan_id.toString());
 
-    const res = await fetch(`${API_URL}?${query.toString()}`);
+    const res = await fetch(`${API_URL}?${query.toString()}`, {
+      headers: getAuthHeaders(),
+    });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al obtener líneas');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al obtener líneas');
     return data.data || [];
   },
 
   getById: async (id: number): Promise<Linea> => {
-    const res = await fetch(`${API_URL}/${id}`);
+    const res = await fetch(`${API_URL}/${id}`, {
+      headers: getAuthHeaders(),
+    });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al obtener línea');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al obtener línea');
     return data.data;
   },
 
@@ -167,11 +179,11 @@ export const lineaService = {
   }): Promise<Linea> => {
     const res = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al crear línea');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al crear línea');
     return data.data;
   },
 
@@ -189,64 +201,71 @@ export const lineaService = {
   ): Promise<Linea> => {
     const res = await fetch(`${API_URL}/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al actualizar línea');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al actualizar línea');
     return data.data;
   },
 
   delete: async (id: number): Promise<void> => {
-    const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+    const res = await fetch(`${API_URL}/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al eliminar línea');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al eliminar línea');
   },
 
   transferir: async (id: number, payload: { personal_nuevo_id: number; motivo?: string }): Promise<Linea> => {
     const res = await fetch(`${API_URL}/${id}/transferir`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al transferir línea');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al transferir línea');
     return data.data;
   },
 
   cambiarPlan: async (id: number, payload: { plan_nuevo_id: number; motivo?: string }): Promise<Linea> => {
     const res = await fetch(`${API_URL}/${id}/cambiar-plan`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al cambiar plan');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al cambiar plan');
     return data.data;
   },
 
   darDeBaja: async (id: number, payload: { motivo_baja: string; fecha_baja?: string }): Promise<Linea> => {
     const res = await fetch(`${API_URL}/${id}/dar-baja`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al dar de baja la línea');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al dar de baja la línea');
     return data.data;
   },
 
   getHistorial: async (id: number): Promise<HistorialLinea[]> => {
-    const res = await fetch(`${API_URL}/${id}/historial`);
+    const res = await fetch(`${API_URL}/${id}/historial`, {
+      headers: getAuthHeaders(),
+    });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al obtener historial');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al obtener historial');
     return data.data || [];
   },
 
   getStats: async (): Promise<LineasStats> => {
-    const res = await fetch(`${API_URL}/stats`);
+    const res = await fetch(`${API_URL}/stats`, {
+      headers: getAuthHeaders(),
+    });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al obtener estadísticas');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al obtener estadísticas');
     return data.data;
   },
 
@@ -255,116 +274,133 @@ export const lineaService = {
     const query = new URLSearchParams();
     if (params?.telefonia_id) query.append('telefonia_id', params.telefonia_id.toString());
     if (params?.estado) query.append('estado', params.estado);
-    const res = await fetch(`${API_URL}/planes?${query.toString()}`);
+    const res = await fetch(`${API_URL}/planes?${query.toString()}`, {
+      headers: getAuthHeaders(),
+    });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al obtener planes');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al obtener planes');
     return data.data || [];
   },
 
   createPlan: async (payload: { telefonia_id: number; nombre: string; costo: number; estado?: EstadoPlan; descripcion?: string }): Promise<PlanTelefonia> => {
     const res = await fetch(`${API_URL}/planes`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al crear plan');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al crear plan');
     return data.data;
   },
 
   updatePlan: async (id: number, payload: { telefonia_id?: number; nombre?: string; costo?: number; estado?: EstadoPlan; descripcion?: string }): Promise<PlanTelefonia> => {
     const res = await fetch(`${API_URL}/planes/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al actualizar plan');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al actualizar plan');
     return data.data;
   },
 
   deletePlan: async (id: number): Promise<void> => {
-    const res = await fetch(`${API_URL}/planes/${id}`, { method: 'DELETE' });
+    const res = await fetch(`${API_URL}/planes/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al eliminar plan');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al eliminar plan');
   },
 
   // PERSONAL
   getPersonal: async (): Promise<Personal[]> => {
-    const res = await fetch(`${API_URL}/personal`);
+    const res = await fetch(`${API_URL}/personal`, {
+      headers: getAuthHeaders(),
+    });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al obtener personal');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al obtener personal');
     return data.data || [];
   },
 
   getPersonalById: async (id: number): Promise<{ personal: Personal; lineas: Linea[] }> => {
-    const res = await fetch(`${API_URL}/personal/${id}`);
+    const res = await fetch(`${API_URL}/personal/${id}`, {
+      headers: getAuthHeaders(),
+    });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al obtener personal');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al obtener personal');
     return data.data;
   },
 
   createPersonal: async (payload: { nombre: string; departamento: string; cargo: string; estado?: EstadoPersonal }): Promise<Personal> => {
     const res = await fetch(`${API_URL}/personal`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al registrar personal');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al registrar personal');
     return data.data;
   },
 
   updatePersonal: async (id: number, payload: { nombre?: string; departamento?: string; cargo?: string; estado?: EstadoPersonal }): Promise<Personal> => {
     const res = await fetch(`${API_URL}/personal/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al actualizar personal');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al actualizar personal');
     return data.data;
   },
 
   deletePersonal: async (id: number): Promise<void> => {
-    const res = await fetch(`${API_URL}/personal/${id}`, { method: 'DELETE' });
+    const res = await fetch(`${API_URL}/personal/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al eliminar personal');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al eliminar personal');
   },
 
   // TELEFONIAS
   getTelefonias: async (): Promise<Telefonia[]> => {
-    const res = await fetch(`${API_URL}/telefonias`);
+    const res = await fetch(`${API_URL}/telefonias`, {
+      headers: getAuthHeaders(),
+    });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al obtener telefonías');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al obtener telefonías');
     return data.data || [];
   },
 
   createTelefonia: async (payload: { nombre: string }): Promise<Telefonia> => {
     const res = await fetch(`${API_URL}/telefonias`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al crear telefonía');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al crear telefonía');
     return data.data;
   },
 
   updateTelefonia: async (id: number, payload: { nombre: string }): Promise<Telefonia> => {
     const res = await fetch(`${API_URL}/telefonias/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al actualizar telefonía');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al actualizar telefonía');
     return data.data;
   },
 
   deleteTelefonia: async (id: number): Promise<void> => {
-    const res = await fetch(`${API_URL}/telefonias/${id}`, { method: 'DELETE' });
+    const res = await fetch(`${API_URL}/telefonias/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error al eliminar telefonía');
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al eliminar telefonía');
   },
 };

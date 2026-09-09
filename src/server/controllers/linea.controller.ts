@@ -1,4 +1,4 @@
-﻿import { pool } from '@/lib/db/database';
+import { pool } from '@/lib/db/database';
 import { registrarAuditoria } from '@/server/utils/auditoria';
 
 export const obtenerLineas = async (req: any, res: any) => {
@@ -160,13 +160,12 @@ export const crearLinea = async (req: any, res: any) => {
     );
 
     await registrarAuditoria(client, {
-      tabla: 'linea',
+      tabla_afectada: 'linea',
       registro_id: nuevaLinea.id,
-      accion: 'INSERT',
-      valores_nuevos: nuevaLinea,
+      accion: 'CREAR',
+      datos_nuevos: nuevaLinea,
       usuario_id: req.user?.id || req.userId || null,
-      ip: req.ip || null,
-      cliente: client,
+      ip_usuario: req.ip || null,
     });
 
     await client.query('COMMIT');
@@ -217,14 +216,13 @@ export const actualizarLinea = async (req: any, res: any) => {
     );
 
     await registrarAuditoria(client, {
-      tabla: 'linea',
+      tabla_afectada: 'linea',
       registro_id: parseInt(id),
-      accion: 'UPDATE',
-      valores_anteriores: prevResult.rows[0],
-      valores_nuevos: result.rows[0],
+      accion: 'ACTUALIZAR',
+      datos_anteriores: prevResult.rows[0],
+      datos_nuevos: result.rows[0],
       usuario_id: req.user?.id || req.userId || null,
-      ip: req.ip || null,
-      cliente: client,
+      ip_usuario: req.ip || null,
     });
 
     await client.query('COMMIT');
@@ -291,14 +289,13 @@ export const transferirLinea = async (req: any, res: any) => {
     );
 
     await registrarAuditoria(client, {
-      tabla: 'linea',
+      tabla_afectada: 'linea',
       registro_id: parseInt(id),
       accion: 'TRANSFERENCIA',
-      valores_anteriores: lineaActual,
-      valores_nuevos: result.rows[0],
+      datos_anteriores: lineaActual,
+      datos_nuevos: result.rows[0],
       usuario_id: req.user?.id || req.userId || null,
-      ip: req.ip || null,
-      cliente: client,
+      ip_usuario: req.ip || null,
     });
 
     await client.query('COMMIT');
@@ -360,14 +357,13 @@ export const cambiarPlanLinea = async (req: any, res: any) => {
     );
 
     await registrarAuditoria(client, {
-      tabla: 'linea',
+      tabla_afectada: 'linea',
       registro_id: parseInt(id),
       accion: 'CAMBIO_PLAN',
-      valores_anteriores: lineaActual,
-      valores_nuevos: result.rows[0],
+      datos_anteriores: lineaActual,
+      datos_nuevos: result.rows[0],
       usuario_id: req.user?.id || req.userId || null,
-      ip: req.ip || null,
-      cliente: client,
+      ip_usuario: req.ip || null,
     });
 
     await client.query('COMMIT');
@@ -425,14 +421,13 @@ export const darDeBajaLinea = async (req: any, res: any) => {
     );
 
     await registrarAuditoria(client, {
-      tabla: 'linea',
+      tabla_afectada: 'linea',
       registro_id: parseInt(id),
       accion: 'BAJA',
-      valores_anteriores: lineaActual,
-      valores_nuevos: result.rows[0],
+      datos_anteriores: lineaActual,
+      datos_nuevos: result.rows[0],
       usuario_id: req.user?.id || req.userId || null,
-      ip: req.ip || null,
-      cliente: client,
+      ip_usuario: req.ip || null,
     });
 
     await client.query('COMMIT');
@@ -512,13 +507,12 @@ export const eliminarLinea = async (req: any, res: any) => {
     await client.query('DELETE FROM linea WHERE id = $1', [id]);
 
     await registrarAuditoria(client, {
-      tabla: 'linea',
+      tabla_afectada: 'linea',
       registro_id: parseInt(id),
-      accion: 'DELETE',
-      valores_anteriores: prevResult.rows[0],
+      accion: 'ELIMINAR',
+      datos_anteriores: prevResult.rows[0],
       usuario_id: req.user?.id || req.userId || null,
-      ip: req.ip || null,
-      cliente: client,
+      ip_usuario: req.ip || null,
     });
 
     await client.query('COMMIT');

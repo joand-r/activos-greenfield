@@ -4,15 +4,13 @@
  */
 
 export const registrarAuditoria = async (client, datos) => {
-  const {
-    usuario_id,
-    accion,
-    tabla_afectada,
-    registro_id,
-    datos_anteriores = null,
-    datos_nuevos = null,
-    ip_usuario = null
-  } = datos;
+  const usuario_id = datos.usuario_id || datos.usuarioId || null;
+  const accion = datos.accion || 'ACCION';
+  const tabla_afectada = datos.tabla_afectada || datos.tabla || 'general';
+  const registro_id = datos.registro_id || datos.registroId || null;
+  const datos_anteriores = datos.datos_anteriores || datos.valores_anteriores || null;
+  const datos_nuevos = datos.datos_nuevos || datos.valores_nuevos || null;
+  const ip_usuario = datos.ip_usuario || datos.ip || null;
 
   try {
     await client.query(
