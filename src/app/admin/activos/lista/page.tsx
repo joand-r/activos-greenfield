@@ -57,6 +57,7 @@ const ListaActivosPage = () => {
   const [editImagenPreview, setEditImagenPreview] = useState('');
   const [editSubiendoImagen, setEditSubiendoImagen] = useState(false);
   const [editCamposEquipoTec, setEditCamposEquipoTec] = useState({ modelo: '', procesador: '', memoria: '', capacidad_disco: '' });
+  const [editCamposCelular, setEditCamposCelular] = useState({ modelo: '', procesador: '', memoria: '', capacidad_disco: '', imei_1: '', imei_2: '' });
   const [editCamposMotorizado, setEditCamposMotorizado] = useState({ tipo_vehiculo: '', motor: '', chasis: '', color: '', anho_modelo: '', placa: '' });
   const [editCamposTerreno, setEditCamposTerreno] = useState({ folio: '', nro_registro: '', area: '', ubicacion: '' });
 
@@ -147,6 +148,15 @@ const ListaActivosPage = () => {
         const d = activo.datos_especificos as any;
         if (activo.tipo_activo === 'EQUIPO_TECNOLOGICO') {
           setEditCamposEquipoTec({ modelo: d.modelo || '', procesador: d.procesador || '', memoria: d.memoria || '', capacidad_disco: d.capacidad_disco || '' });
+        } else if (activo.tipo_activo === 'CELULAR') {
+          setEditCamposCelular({
+            modelo: d.modelo || '',
+            procesador: d.procesador || '',
+            memoria: d.memoria || '',
+            capacidad_disco: d.capacidad_disco || '',
+            imei_1: d.imei_1 || '',
+            imei_2: d.imei_2 || '',
+          });
         } else if (activo.tipo_activo === 'VEHICULO' || activo.tipo_activo === 'MAQUINARIA') {
           setEditCamposMotorizado({ tipo_vehiculo: d.tipo_vehiculo || '', motor: d.motor || '', chasis: d.chasis || '', color: d.color || '', anho_modelo: d.anho_modelo?.toString() || '', placa: d.placa || '' });
         } else if (activo.tipo_activo === 'TERRENO') {
@@ -203,6 +213,15 @@ const ListaActivosPage = () => {
       let datos_especificos: any = null;
       if (tipo === 'EQUIPO_TECNOLOGICO') {
         datos_especificos = { modelo: editCamposEquipoTec.modelo || null, procesador: editCamposEquipoTec.procesador || null, memoria: editCamposEquipoTec.memoria || null, capacidad_disco: editCamposEquipoTec.capacidad_disco || null };
+      } else if (tipo === 'CELULAR') {
+        datos_especificos = {
+          modelo: editCamposCelular.modelo || null,
+          procesador: editCamposCelular.procesador || null,
+          memoria: editCamposCelular.memoria || null,
+          capacidad_disco: editCamposCelular.capacidad_disco || null,
+          imei_1: editCamposCelular.imei_1 || null,
+          imei_2: editCamposCelular.imei_2 || null,
+        };
       } else if (tipo === 'VEHICULO' || tipo === 'MAQUINARIA') {
         datos_especificos = { tipo_vehiculo: editCamposMotorizado.tipo_vehiculo || null, motor: editCamposMotorizado.motor || null, chasis: editCamposMotorizado.chasis || null, color: editCamposMotorizado.color || null, anho_modelo: editCamposMotorizado.anho_modelo ? parseInt(editCamposMotorizado.anho_modelo) : null, placa: editCamposMotorizado.placa || null };
       } else if (tipo === 'TERRENO') {
@@ -239,7 +258,9 @@ const ListaActivosPage = () => {
     modelo: 'Modelo',
     procesador: 'Procesador',
     memoria: 'Memoria RAM',
-    capacidad_disco: 'Capacidad de Disco',
+    capacidad_disco: 'Capacidad / Almacenamiento',
+    imei_1: 'IMEI 1',
+    imei_2: 'IMEI 2',
     tipo_vehiculo: 'Tipo de Vehículo',
     motor: 'Motor',
     chasis: 'Chasis',
@@ -271,6 +292,7 @@ const ListaActivosPage = () => {
     'MUEBLES_HOGAR',
     'UTENSILIO_EQUIPAMIENTO',
     'EQUIPO_TECNOLOGICO',
+    'CELULAR',
     'VEHICULO',
     'MAQUINARIA',
     'TERRENO',
@@ -769,6 +791,19 @@ const ListaActivosPage = () => {
                             <div key={k}>
                               <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400 capitalize">{k.replace('_', ' ')}</label>
                               <input type="text" value={editCamposEquipoTec[k]} onChange={e => setEditCamposEquipoTec(p => ({ ...p, [k]: e.target.value }))}
+                                className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {activoSeleccionado.tipo_activo === 'CELULAR' && (
+                        <div className="grid grid-cols-2 gap-3">
+                          {(['modelo', 'procesador', 'memoria', 'capacidad_disco', 'imei_1', 'imei_2'] as const).map(k => (
+                            <div key={k}>
+                              <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400 capitalize">
+                                {k === 'imei_1' ? 'IMEI 1 (Opcional)' : k === 'imei_2' ? 'IMEI 2 (Opcional)' : k === 'capacidad_disco' ? 'Almacenamiento' : k.replace('_', ' ')}
+                              </label>
+                              <input type="text" value={editCamposCelular[k]} onChange={e => setEditCamposCelular(p => ({ ...p, [k]: e.target.value }))}
                                 className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary" />
                             </div>
                           ))}

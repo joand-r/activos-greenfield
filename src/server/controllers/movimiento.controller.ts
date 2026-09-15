@@ -142,10 +142,12 @@ export const crearMovimiento = async (req, res) => {
       const activoOriginalRes = await client.query(
         `SELECT a.*, 
           et.modelo, et.procesador, et.memoria, et.capacidad_disco,
+          cel.modelo as cel_modelo, cel.procesador as cel_procesador, cel.memoria as cel_memoria, cel.capacidad_disco as cel_capacidad_disco, cel.imei_1, cel.imei_2,
           mo.tipo_vehiculo, mo.motor, mo.chasis, mo.color, mo.anho_modelo,
           te.folio, te.nro_registro, te.area, te.ubicacion
          FROM activo a
          LEFT JOIN equipos_tecnologicos et ON a.id = et.activo_id
+         LEFT JOIN celulares cel ON a.id = cel.activo_id
          LEFT JOIN motorizados mo ON a.id = mo.activo_id
          LEFT JOIN terreno te ON a.id = te.activo_id
          WHERE a.id = $1`,
@@ -168,13 +170,13 @@ export const crearMovimiento = async (req, res) => {
       // 3. Crear nuevo activo en el lugar destino con el estado original heredado
       const nuevoActivoRes = await client.query(
         `INSERT INTO activo (
-          nombre, tipo_activo, codigo, serie, imagen, estado, descripcion,
+          nombre, tipo_activo, clasificacion, codigo, serie, imagen, estado, descripcion,
           fecha_adquision, costo_adquision, tipo_constancia, nro_constancia,
           lugar_id, marca_id, proveedor_id
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
         RETURNING *`,
         [
-          orig.nombre, orig.tipo_activo, nuevoCodigo, orig.serie, orig.imagen,
+          orig.nombre, orig.tipo_activo, orig.clasificacion || 'FIJO', nuevoCodigo, orig.serie, orig.imagen,
           orig.estado, // hereda el estado original (ej: NUEVO → NUEVO)
           orig.descripcion, orig.fecha_adquision, orig.costo_adquision,
           orig.tipo_constancia, orig.nro_constancia,
@@ -189,6 +191,20 @@ export const crearMovimiento = async (req, res) => {
           `INSERT INTO equipos_tecnologicos (activo_id, modelo, procesador, memoria, capacidad_disco)
            VALUES ($1,$2,$3,$4,$5)`,
           [nuevoActivoId, orig.modelo, orig.procesador, orig.memoria, orig.capacidad_disco]
+        );
+      } else if (orig.tipo_activo === 'CELULAR' && (orig.cel_modelo || orig.imei_1 || orig.imei_2 || orig.modelo)) {
+        await client.query(
+          `INSERT INTO celulares (activo_id, modelo, procesador, memoria, capacidad_disco, imei_1, imei_2)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          [
+            nuevoActivoId,
+            orig.cel_modelo || orig.modelo || null,
+            orig.cel_procesador || orig.procesador || null,
+            orig.cel_memoria || orig.memoria || null,
+            orig.cel_capacidad_disco || orig.capacidad_disco || null,
+            orig.imei_1 || null,
+            orig.imei_2 || null
+          ]
         );
       } else if (orig.tipo_activo === 'VEHICULO' && orig.tipo_vehiculo) {
         await client.query(

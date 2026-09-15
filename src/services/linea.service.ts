@@ -39,7 +39,7 @@ export type EstadoLinea = 'ACTIVA' | 'BAJA' | 'DISPONIBLE' | 'SUSPENDIDA';
 export interface Linea {
   id: number;
   numero: string;
-  equipo_asignado?: string;
+  activo_id?: number | null;
   plan_id: number;
   personal_id?: number | null;
   estado: EstadoLinea;
@@ -56,6 +56,14 @@ export interface Linea {
   personal_nombre?: string;
   personal_departamento?: string;
   personal_cargo?: string;
+  celular_codigo?: string;
+  celular_nombre?: string;
+  celular_modelo?: string;
+  celular_marca?: string;
+  celular_imei_1?: string;
+  celular_imei_2?: string;
+  celular_memoria?: string;
+  celular_capacidad?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -73,6 +81,12 @@ export interface HistorialLinea {
   plan_anterior_nombre?: string;
   plan_nuevo_id?: number | null;
   plan_nuevo_nombre?: string;
+  activo_anterior_id?: number | null;
+  activo_anterior_codigo?: string;
+  activo_anterior_modelo?: string;
+  activo_nuevo_id?: number | null;
+  activo_nuevo_codigo?: string;
+  activo_nuevo_modelo?: string;
   tipo_evento: TipoEventoHistorial;
   motivo?: string;
   usuario_id?: number | null;
@@ -130,6 +144,86 @@ export const getNombreEstadoPlan = (estado?: EstadoPlan | string | null): string
   return estado === 'DISPONIBLE' ? 'Disponible' : 'No Disponible';
 };
 
+// ==================== TIPOS Y HELPERS CELULARES ====================
+
+export type EstadoOperativoCelular = 'DISPONIBLE' | 'ACTIVO' | 'BAJA' | 'DESHABILITADO';
+
+export interface CelularLinea {
+  // Activo base
+  id: number;
+  codigo: string;
+  nombre: string;
+  serie?: string;
+  activo_estado: string;
+  clasificacion?: string;
+  imagen?: string;
+  descripcion?: string;
+  fecha_adquision?: string;
+  costo_adquision?: number;
+  lugar_id?: number;
+  lugar_nombre?: string;
+  marca_id?: number;
+  marca_nombre?: string;
+  proveedor_id?: number;
+  proveedor_nombre?: string;
+
+  // Celulares specific
+  modelo: string;
+  procesador?: string;
+  memoria?: string;
+  capacidad_disco?: string;
+  imei_1?: string;
+  imei_2?: string;
+  estado_operativo: EstadoOperativoCelular;
+  fecha_baja?: string;
+  motivo_baja?: string;
+  accesorios?: string;
+
+  // Línea enlazada (si existe y activa)
+  linea_id?: number;
+  linea_numero?: string;
+  linea_estado?: string;
+  plan_nombre?: string;
+  plan_costo?: number;
+  telefonia_nombre?: string;
+
+  // Personal enlazado
+  personal_id?: number;
+  personal_nombre?: string;
+  personal_cargo?: string;
+  personal_departamento?: string;
+}
+
+export const getColorEstadoCelular = (estado?: EstadoOperativoCelular | string | null): string => {
+  switch (estado) {
+    case 'DISPONIBLE':
+      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-300 dark:border-blue-800';
+    case 'ACTIVO':
+      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800';
+    case 'BAJA':
+      return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300 border-rose-300 dark:border-rose-800';
+    case 'DESHABILITADO':
+      return 'bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-400 border-zinc-300 dark:border-zinc-700';
+    default:
+      return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 border-gray-300 dark:border-gray-700';
+  }
+};
+
+export const getNombreEstadoCelular = (estado?: EstadoOperativoCelular | string | null): string => {
+  switch (estado) {
+    case 'DISPONIBLE':
+      return 'Disponible';
+    case 'ACTIVO':
+      return 'En Servicio (Activo)';
+    case 'BAJA':
+      return 'Dado de Baja';
+    case 'DESHABILITADO':
+      return 'Deshabilitado';
+    default:
+      return estado || 'N/A';
+  }
+};
+
 // API Services
 const API_URL = '/api/lineas';
 
@@ -170,7 +264,7 @@ export const lineaService = {
 
   create: async (payload: {
     numero: string;
-    equipo_asignado?: string;
+    activo_id?: number | null;
     plan_id: number;
     personal_id?: number | null;
     estado?: EstadoLinea;
@@ -191,7 +285,7 @@ export const lineaService = {
     id: number,
     payload: {
       numero?: string;
-      equipo_asignado?: string;
+      activo_id?: number | null;
       plan_id?: number;
       personal_id?: number | null;
       estado?: EstadoLinea;
@@ -403,4 +497,59 @@ export const lineaService = {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || data.message || 'Error al eliminar telefonía');
   },
+
+  // CELULARES
+  getCelulares: async (params?: { search?: string; estado_operativo?: string; marca_id?: number; lugar_id?: number; telefonia_id?: number }): Promise<CelularLinea[]> => {
+    const query = new URLSearchParams();
+    if (params?.search) query.append('search', params.search);
+    if (params?.estado_operativo) query.append('estado_operativo', params.estado_operativo);
+    if (params?.marca_id) query.append('marca_id', params.marca_id.toString());
+    if (params?.lugar_id) query.append('lugar_id', params.lugar_id.toString());
+    if (params?.telefonia_id) query.append('telefonia_id', params.telefonia_id.toString());
+
+    const res = await fetch(`${API_URL}/celulares?${query.toString()}`, {
+      headers: getAuthHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al obtener celulares');
+    return data.data || [];
+  },
+
+  getCelularById: async (id: number): Promise<CelularLinea> => {
+    const res = await fetch(`${API_URL}/celulares/${id}`, {
+      headers: getAuthHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al obtener celular');
+    return data.data;
+  },
+
+  updateCelularEstado: async (
+    id: number,
+    payload: { estado_operativo: EstadoOperativoCelular; accesorios?: string; motivo?: string }
+  ): Promise<any> => {
+    const res = await fetch(`${API_URL}/celulares/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al actualizar estado del celular');
+    return data.data;
+  },
+
+  darDeBajaCelular: async (
+    id: number,
+    payload: { motivo_baja: string; fecha_baja?: string }
+  ): Promise<any> => {
+    const res = await fetch(`${API_URL}/celulares/${id}/dar-baja`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al dar de baja el celular');
+    return data.data;
+  },
 };
+

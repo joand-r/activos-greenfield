@@ -437,7 +437,7 @@ const PersonalPage = () => {
                         <th className="px-4 py-3 text-left font-bold">Telefonía</th>
                         <th className="px-4 py-3 text-left font-bold">Plan</th>
                         <th className="px-4 py-3 text-right font-bold">Costo</th>
-                        <th className="px-4 py-3 text-left font-bold">Equipo Asignado</th>
+                        <th className="px-4 py-3 text-left font-bold">Equipo Celular</th>
                         <th className="px-4 py-3 text-center font-bold">Estado</th>
                       </tr>
                     </thead>
@@ -457,7 +457,16 @@ const PersonalPage = () => {
                             Bs. {parseFloat(String(linea.plan_costo || 0)).toFixed(2)}
                           </td>
                           <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                            {linea.equipo_asignado || "Solo Chip"}
+                            {linea.celular_codigo ? (
+                              <span className="inline-flex items-center gap-1.5 font-bold text-black dark:text-white text-xs">
+                                <span className="font-mono text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                                  {linea.celular_codigo}
+                                </span>
+                                {linea.celular_modelo || linea.celular_nombre}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 dark:text-gray-500 italic text-xs">Solo Chip</span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span

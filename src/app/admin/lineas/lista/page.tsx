@@ -16,6 +16,7 @@ import {
   getColorEstadoLinea,
   getNombreEstadoLinea,
 } from "@/services/linea.service";
+import { activoService, Activo } from "@/services/activo.service";
 import InfoModal from "@/components/ui/InfoModal";
 import { useToast } from "@/contexts/ToastContext";
 
@@ -27,6 +28,7 @@ const ListaLineasPage = () => {
   const [telefonias, setTelefonias] = useState<Telefonia[]>([]);
   const [planes, setPlanes] = useState<PlanTelefonia[]>([]);
   const [personalList, setPersonalList] = useState<Personal[]>([]);
+  const [celulares, setCelulares] = useState<Activo[]>([]);
   const [stats, setStats] = useState<LineasStats>({
     total_lineas: 0,
     lineas_activas: 0,
@@ -74,7 +76,7 @@ const ListaLineasPage = () => {
 
   const [edicionData, setEdicionData] = useState({
     numero: "",
-    equipo_asignado: "",
+    activo_id: "",
     observaciones: "",
   });
 
@@ -100,18 +102,20 @@ const ListaLineasPage = () => {
   const cargarDatos = async () => {
     showLoading();
     try {
-      const [lineasData, telefoniasData, planesData, personalData, statsData] = await Promise.all([
+      const [lineasData, telefoniasData, planesData, personalData, statsData, celularesData] = await Promise.all([
         lineaService.getAll(),
         lineaService.getTelefonias(),
         lineaService.getPlanes(),
         lineaService.getPersonal(),
         lineaService.getStats(),
+        activoService.getAll({ tipo_activo: "CELULAR" }),
       ]);
 
       setLineas(lineasData || []);
       setTelefonias(telefoniasData || []);
       setPlanes(planesData || []);
       setPersonalList(personalData || []);
+      setCelulares(celularesData || []);
       if (statsData) setStats(statsData);
     } catch (err: any) {
       console.error("Error al cargar datos:", err);
@@ -250,7 +254,7 @@ const ListaLineasPage = () => {
     setLineaSeleccionada(l);
     setEdicionData({
       numero: l.numero,
-      equipo_asignado: l.equipo_asignado || "",
+      activo_id: l.activo_id ? String(l.activo_id) : "",
       observaciones: l.observaciones || "",
     });
     setModalEdicion(true);
@@ -267,7 +271,7 @@ const ListaLineasPage = () => {
     try {
       await lineaService.update(lineaSeleccionada.id, {
         numero: edicionData.numero.trim(),
-        equipo_asignado: edicionData.equipo_asignado.trim() || undefined,
+        activo_id: edicionData.activo_id ? parseInt(edicionData.activo_id) : null,
         observaciones: edicionData.observaciones.trim() || undefined,
       });
 
@@ -459,7 +463,7 @@ const ListaLineasPage = () => {
                 <td style="font-weight: bold;">${l.telefonia_nombre || 'N/A'}</td>
                 <td>${l.plan_nombre || 'N/A'}</td>
                 <td style="text-align: right; font-weight: bold;">Bs. ${parseFloat(String(l.plan_costo || 0)).toFixed(2)}</td>
-                <td>${l.equipo_asignado || 'Solo Chip'}</td>
+                <td>${l.celular_codigo ? `[${l.celular_codigo}] ${l.celular_modelo || l.celular_nombre || ''}` : 'Solo Chip'}</td>
                 <td style="text-align: center;">
                   <span class="badge badge-${(l.estado || 'disponible').toLowerCase()}">
                     ${getNombreEstadoLinea(l.estado)}
@@ -500,7 +504,11 @@ const ListaLineasPage = () => {
         l.personal_nombre?.toLowerCase().includes(q) ||
         l.personal_departamento?.toLowerCase().includes(q) ||
         l.personal_cargo?.toLowerCase().includes(q) ||
-        l.equipo_asignado?.toLowerCase().includes(q) ||
+        l.celular_codigo?.toLowerCase().includes(q) ||
+        l.celular_nombre?.toLowerCase().includes(q) ||
+        l.celular_modelo?.toLowerCase().includes(q) ||
+        l.celular_imei_1?.toLowerCase().includes(q) ||
+        l.celular_imei_2?.toLowerCase().includes(q) ||
         l.plan_nombre?.toLowerCase().includes(q);
 
       const cumpleTelefonia = !telId || l.telefonia_id === telId;
@@ -738,7 +746,7 @@ const ListaLineasPage = () => {
                       Plan (Tarifa Mensual)
                     </th>
                     <th className="px-5 py-4 text-left text-[10px] font-bold uppercase tracking-wider text-black dark:text-white">
-                      Equipo Asignado
+                      Equipo Celular
                     </th>
                     <th className="px-5 py-4 text-center text-[10px] font-bold uppercase tracking-wider text-black dark:text-white">
                       Estado
@@ -787,8 +795,26 @@ const ListaLineasPage = () => {
                             Bs. {parseFloat(String(linea.plan_costo || 0)).toFixed(2)}/mes
                           </p>
                         </td>
-                        <td className="px-5 py-4 text-gray-700 dark:text-gray-300">
-                          {linea.equipo_asignado || "Solo Chip"}
+                        <td className="px-5 py-4">
+                          {linea.celular_codigo ? (
+                            <div className="flex flex-col">
+                              <span className="font-bold text-black dark:text-white text-xs flex items-center gap-1.5">
+                                <span className="font-mono text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold">
+                                  {linea.celular_codigo}
+                                </span>
+                                {linea.celular_modelo || linea.celular_nombre}
+                              </span>
+                              {linea.celular_imei_1 && (
+                                <span className="text-[10px] font-mono text-gray-500 dark:text-gray-400 mt-0.5">
+                                  IMEI: {linea.celular_imei_1}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 dark:text-gray-500 text-xs italic">
+                              Solo Chip
+                            </span>
+                          )}
                         </td>
                         <td className="px-5 py-4 text-center">
                           <span
@@ -953,16 +979,49 @@ const ListaLineasPage = () => {
               </div>
 
               <div className="rounded-xl bg-gray-50 dark:bg-gray-800/50 p-4 border border-gray-200 dark:border-gray-700">
-                <h4 className="text-[10px] font-bold uppercase tracking-wider text-primary mb-2">Equipo y Fechas</h4>
-                <div className="grid grid-cols-2 gap-2">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-primary mb-2">Equipo Celular y Asignación</h4>
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <p className="text-gray-500">Equipo Asignado:</p>
-                    <p className="font-bold text-black dark:text-white">{lineaSeleccionada.equipo_asignado || "Solo Chip"}</p>
+                    <p className="text-gray-500">Celular Vinculado:</p>
+                    {lineaSeleccionada.celular_codigo ? (
+                      <p className="font-bold text-black dark:text-white">
+                        <span className="font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs mr-1 font-bold">
+                          {lineaSeleccionada.celular_codigo}
+                        </span>
+                        {lineaSeleccionada.celular_nombre} {lineaSeleccionada.celular_modelo ? `— ${lineaSeleccionada.celular_modelo}` : ""}
+                      </p>
+                    ) : (
+                      <p className="font-medium text-gray-500 italic">Solo Chip / Sin Celular</p>
+                    )}
                   </div>
                   <div>
                     <p className="text-gray-500">Fecha Asignación:</p>
                     <p className="font-medium text-black dark:text-white">{lineaSeleccionada.fecha_asignacion || "N/A"}</p>
                   </div>
+                  {lineaSeleccionada.celular_imei_1 && (
+                    <div>
+                      <p className="text-gray-500">IMEI 1:</p>
+                      <p className="font-mono text-xs font-bold text-black dark:text-white">{lineaSeleccionada.celular_imei_1}</p>
+                    </div>
+                  )}
+                  {lineaSeleccionada.celular_imei_2 && (
+                    <div>
+                      <p className="text-gray-500">IMEI 2:</p>
+                      <p className="font-mono text-xs font-bold text-black dark:text-white">{lineaSeleccionada.celular_imei_2}</p>
+                    </div>
+                  )}
+                  {lineaSeleccionada.celular_memoria && (
+                    <div>
+                      <p className="text-gray-500">Memoria RAM:</p>
+                      <p className="font-medium text-black dark:text-white">{lineaSeleccionada.celular_memoria}</p>
+                    </div>
+                  )}
+                  {lineaSeleccionada.celular_capacidad && (
+                    <div>
+                      <p className="text-gray-500">Almacenamiento:</p>
+                      <p className="font-medium text-black dark:text-white">{lineaSeleccionada.celular_capacidad}</p>
+                    </div>
+                  )}
                 </div>
 
                 {lineaSeleccionada.estado === "BAJA" && (
@@ -1283,6 +1342,17 @@ const ListaLineasPage = () => {
                       {item.tipo_evento === "ASIGNACION" && (
                         <p className="text-xs font-medium text-black dark:text-white mt-1">
                           Asignada a: <strong>{item.personal_nuevo_nombre || "Stock inicial"}</strong>
+                          {item.activo_nuevo_codigo && (
+                            <span className="block text-[11px] text-body-color dark:text-gray-400 mt-0.5">
+                              Celular: <strong className="text-black dark:text-white">[{item.activo_nuevo_codigo}] {item.activo_nuevo_modelo || ""}</strong>
+                            </span>
+                          )}
+                        </p>
+                      )}
+
+                      {item.tipo_evento === "TRANSFERENCIA" && item.activo_nuevo_codigo && (
+                        <p className="text-[11px] text-body-color dark:text-gray-400 mt-0.5">
+                          Celular: <strong className="text-black dark:text-white">[{item.activo_nuevo_codigo}] {item.activo_nuevo_modelo || ""}</strong>
                         </p>
                       )}
 
@@ -1336,15 +1406,25 @@ const ListaLineasPage = () => {
 
               <div>
                 <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Equipo Asignado
+                  Equipo Celular Asignado
                 </label>
-                <input
-                  type="text"
-                  value={edicionData.equipo_asignado}
-                  onChange={(e) => setEdicionData({ ...edicionData, equipo_asignado: e.target.value })}
-                  placeholder="Ej: iPhone 13 Pro, Solo Chip"
+                <select
+                  value={edicionData.activo_id}
+                  onChange={(e) => setEdicionData({ ...edicionData, activo_id: e.target.value })}
                   className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                />
+                >
+                  <option value="">-- Sin Celular (Solo Chip) --</option>
+                  {celulares.map((cel) => {
+                    const datos = cel.datos_especificos as any;
+                    const modelo = datos?.modelo;
+                    const imei1 = datos?.imei_1;
+                    return (
+                      <option key={cel.id} value={cel.id}>
+                        [{cel.codigo}] {cel.nombre} {modelo ? `— ${modelo}` : ""} {imei1 ? `(IMEI: ${imei1})` : ""}
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
 
               <div>

@@ -74,6 +74,15 @@ const RegistrarActivoPage = () => {
     capacidad_disco: "",
   });
 
+  const [camposCelular, setCamposCelular] = useState({
+    modelo: "",
+    procesador: "",
+    memoria: "",
+    capacidad_disco: "",
+    imei_1: "",
+    imei_2: "",
+  });
+
   const [camposMotorizado, setCamposMotorizado] = useState({
     tipo_vehiculo: "",
     motor: "",
@@ -249,6 +258,15 @@ const RegistrarActivoPage = () => {
           memoria: camposEquipoTecnologico.memoria || null,
           capacidad_disco: camposEquipoTecnologico.capacidad_disco || null,
         };
+      } else if (tipoActivo === 'CELULAR') {
+        datos_especificos = {
+          modelo: camposCelular.modelo || null,
+          procesador: camposCelular.procesador || null,
+          memoria: camposCelular.memoria || null,
+          capacidad_disco: camposCelular.capacidad_disco || null,
+          imei_1: camposCelular.imei_1 || null,
+          imei_2: camposCelular.imei_2 || null,
+        };
       } else if (tipoActivo === 'VEHICULO' || tipoActivo === 'MAQUINARIA') {
         datos_especificos = {
           tipo_vehiculo: camposMotorizado.tipo_vehiculo || null,
@@ -311,6 +329,7 @@ const RegistrarActivoPage = () => {
     'MUEBLES_HOGAR',
     'UTENSILIO_EQUIPAMIENTO',
     'EQUIPO_TECNOLOGICO',
+    'CELULAR',
     'VEHICULO',
     'MAQUINARIA',
     'TERRENO',
@@ -367,6 +386,7 @@ const RegistrarActivoPage = () => {
                           <option value="MUEBLES_HOGAR">{getNombreTipoActivo('MUEBLES_HOGAR')}</option>
                           <option value="UTENSILIO_EQUIPAMIENTO">{getNombreTipoActivo('UTENSILIO_EQUIPAMIENTO')}</option>
                           <option value="EQUIPO_TECNOLOGICO">{getNombreTipoActivo('EQUIPO_TECNOLOGICO')}</option>
+                          <option value="CELULAR">{getNombreTipoActivo('CELULAR')}</option>
                           <option value="VEHICULO">{getNombreTipoActivo('VEHICULO')}</option>
                           <option value="MAQUINARIA">{getNombreTipoActivo('MAQUINARIA')}</option>
                           <option value="TERRENO">{getNombreTipoActivo('TERRENO')}</option>
@@ -783,6 +803,84 @@ const RegistrarActivoPage = () => {
                                   onChange={(e) => setCamposEquipoTecnologico({...camposEquipoTecnologico, capacidad_disco: e.target.value})}
                                   placeholder="Ej: 512GB SSD"
                                   className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Campos para CELULAR */}
+                          {tipoActivo === 'CELULAR' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div>
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  Modelo
+                                </label>
+                                <input
+                                  type="text"
+                                  value={camposCelular.modelo}
+                                  onChange={(e) => setCamposCelular({...camposCelular, modelo: e.target.value})}
+                                  placeholder="Ej: iPhone 13 Pro / Galaxy S23"
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  Procesador
+                                </label>
+                                <input
+                                  type="text"
+                                  value={camposCelular.procesador}
+                                  onChange={(e) => setCamposCelular({...camposCelular, procesador: e.target.value})}
+                                  placeholder="Ej: Apple A15 Bionic / Snapdragon 8 Gen 2"
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  Memoria (RAM)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={camposCelular.memoria}
+                                  onChange={(e) => setCamposCelular({...camposCelular, memoria: e.target.value})}
+                                  placeholder="Ej: 6GB / 8GB"
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  Almacenamiento (Capacidad)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={camposCelular.capacidad_disco}
+                                  onChange={(e) => setCamposCelular({...camposCelular, capacidad_disco: e.target.value})}
+                                  placeholder="Ej: 128GB / 256GB"
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  IMEI 1 <span className="text-[10px] font-normal text-gray-500">(Opcional)</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  value={camposCelular.imei_1}
+                                  onChange={(e) => setCamposCelular({...camposCelular, imei_1: e.target.value})}
+                                  placeholder="Ej: 356938035643809"
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all font-mono"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+                                  IMEI 2 <span className="text-[10px] font-normal text-gray-500">(Opcional)</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  value={camposCelular.imei_2}
+                                  onChange={(e) => setCamposCelular({...camposCelular, imei_2: e.target.value})}
+                                  placeholder="Ej: 356938035643810"
+                                  className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all font-mono"
                                 />
                               </div>
                             </div>

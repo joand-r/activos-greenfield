@@ -12,6 +12,7 @@ import {
   Personal,
   EstadoLinea,
 } from "@/services/linea.service";
+import { activoService, Activo } from "@/services/activo.service";
 import { useToast } from "@/contexts/ToastContext";
 
 const RegistrarLineaPage = () => {
@@ -22,10 +23,11 @@ const RegistrarLineaPage = () => {
   const [telefonias, setTelefonias] = useState<Telefonia[]>([]);
   const [planes, setPlanes] = useState<PlanTelefonia[]>([]);
   const [personalList, setPersonalList] = useState<Personal[]>([]);
+  const [celulares, setCelulares] = useState<Activo[]>([]);
 
   // Form states
   const [numero, setNumero] = useState("");
-  const [equipoAsignado, setEquipoAsignado] = useState("");
+  const [activoId, setActivoId] = useState<string>("");
   const [planId, setPlanId] = useState<string>("");
   const [personalId, setPersonalId] = useState<string>("");
   const [estado, setEstado] = useState<EstadoLinea>("ACTIVA");
@@ -64,15 +66,17 @@ const RegistrarLineaPage = () => {
   const cargarDatos = async () => {
     showLoading();
     try {
-      const [telefoniasData, planesData, personalData] = await Promise.all([
+      const [telefoniasData, planesData, personalData, celularesData] = await Promise.all([
         lineaService.getTelefonias(),
         lineaService.getPlanes({ estado: "DISPONIBLE" }),
         lineaService.getPersonal(),
+        activoService.getAll({ tipo_activo: "CELULAR" }),
       ]);
 
       setTelefonias(telefoniasData || []);
       setPlanes(planesData || []);
       setPersonalList((personalData || []).filter((p) => p.estado === "ACTIVO"));
+      setCelulares(celularesData || []);
 
       if (planesData && planesData.length > 0 && !planId) {
         setPlanId(String(planesData[0].id));
@@ -169,6 +173,7 @@ const RegistrarLineaPage = () => {
 
   const planSeleccionado = planes.find((p) => String(p.id) === planId);
   const colaboradorSeleccionado = personalList.find((p) => String(p.id) === personalId);
+  const celularSeleccionado = celulares.find((c) => String(c.id) === activoId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,7 +190,7 @@ const RegistrarLineaPage = () => {
     try {
       await lineaService.create({
         numero: numero.trim(),
-        equipo_asignado: equipoAsignado.trim() || undefined,
+        activo_id: activoId ? parseInt(activoId) : null,
         plan_id: parseInt(planId),
         personal_id: personalId ? parseInt(personalId) : null,
         estado: personalId ? estado : "DISPONIBLE",
@@ -204,7 +209,7 @@ const RegistrarLineaPage = () => {
     <>
       <Breadcrumb
         pageName="Registrar Línea Telefónica"
-        description="Asignación de números corporativos, planes tarifarios y equipos a colaboradores"
+        description="Asignación de números corporativos, planes tarifarios y activos celulares a colaboradores"
       />
 
       <section className="pb-16 pt-6">
@@ -216,10 +221,10 @@ const RegistrarLineaPage = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* SECCIÓN 1: DATOS DE LA LÍNEA Y EQUIPO */}
+            {/* SECCIÓN 1: DATOS DE LA LÍNEA Y EQUIPO CELULAR */}
             <div className="p-6 rounded-2xl border border-black/5 dark:border-white/5 bg-white/80 dark:bg-black/40 backdrop-blur-md shadow-sm">
               <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-black/70 dark:text-white/70 border-b border-black/5 dark:border-white/5 pb-2">
-                1. Información de la Línea y Equipo
+                1. Información de la Línea y Equipo Celular
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -241,21 +246,83 @@ const RegistrarLineaPage = () => {
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold text-black dark:text-white">
-                    Equipo Asignado
-                  </label>
-                  <input
-                    type="text"
-                    value={equipoAsignado}
-                    onChange={(e) => setEquipoAsignado(e.target.value)}
-                    placeholder="Ej: iPhone 13 Pro, Samsung Galaxy S22, Solo Chip"
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-black dark:text-white">
+                      Equipo Celular
+                    </label>
+                    <Link
+                      href="/admin/activos/registrar"
+                      target="_blank"
+                      className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
+                      title="Registrar un nuevo celular en el módulo de Activos"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Nuevo Celular
+                    </Link>
+                  </div>
+                  <select
+                    value={activoId}
+                    onChange={(e) => setActivoId(e.target.value)}
                     className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                  />
+                  >
+                    <option value="">-- Sin Celular (Solo Chip) --</option>
+                    {celulares.map((cel) => {
+                      const datos = cel.datos_especificos as any;
+                      const modelo = datos?.modelo;
+                      const imei1 = datos?.imei_1;
+                      return (
+                        <option key={cel.id} value={cel.id}>
+                          [{cel.codigo}] {cel.nombre} {modelo ? `— ${modelo}` : ""} {imei1 ? `(IMEI: ${imei1})` : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
                   <p className="mt-1 text-[10px] text-body-color dark:text-gray-400">
-                    Modelo o marca del celular asignado (o &ldquo;Solo Chip&rdquo; si no aplica).
+                    Selecciona el celular asignado desde el inventario de activos.
                   </p>
                 </div>
               </div>
+
+              {celularSeleccionado && (
+                <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-bold bg-primary text-white px-2 py-0.5 rounded-md">
+                        {celularSeleccionado.codigo}
+                      </span>
+                      <p className="text-xs font-bold text-black dark:text-white">
+                        {celularSeleccionado.nombre}
+                      </p>
+                      {(celularSeleccionado.datos_especificos as any)?.modelo && (
+                        <span className="text-xs text-body-color dark:text-gray-300">
+                          • {(celularSeleccionado.datos_especificos as any).modelo}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-body-color dark:text-gray-400 mt-1.5">
+                      {(celularSeleccionado.datos_especificos as any)?.memoria && (
+                        <span>RAM: <strong className="text-black dark:text-white">{(celularSeleccionado.datos_especificos as any).memoria}</strong></span>
+                      )}
+                      {(celularSeleccionado.datos_especificos as any)?.capacidad_disco && (
+                        <span>Almacenamiento: <strong className="text-black dark:text-white">{(celularSeleccionado.datos_especificos as any).capacidad_disco}</strong></span>
+                      )}
+                      {(celularSeleccionado.datos_especificos as any)?.imei_1 && (
+                        <span>IMEI 1: <strong className="font-mono text-black dark:text-white">{(celularSeleccionado.datos_especificos as any).imei_1}</strong></span>
+                      )}
+                      {(celularSeleccionado.datos_especificos as any)?.imei_2 && (
+                        <span>IMEI 2: <strong className="font-mono text-black dark:text-white">{(celularSeleccionado.datos_especificos as any).imei_2}</strong></span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="sm:text-right">
+                    <span className="inline-flex items-center rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 px-2.5 py-1 text-[10px] font-bold">
+                      Activo Celular
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* SECCIÓN 2: PLAN TELEFÓNICO */}

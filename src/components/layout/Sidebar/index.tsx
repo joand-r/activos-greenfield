@@ -181,6 +181,7 @@ export default function Sidebar() {
       subItems: [
         { title: "Ver Líneas", path: "/admin/lineas/lista" },
         { title: "Registrar Línea", path: "/admin/lineas/registrar" },
+        { title: "Celulares", path: "/admin/lineas/celulares" },
         { title: "Planes", path: "/admin/lineas/planes" },
         { title: "Personal", path: "/admin/lineas/personal" },
         { title: "Telefonías", path: "/admin/lineas/telefonias" },

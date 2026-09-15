@@ -108,6 +108,14 @@ export const obtenerActivoPorId = async (req, res) => {
         datosEspecificos = tecResult.rows[0] || null;
         break;
         
+      case 'CELULAR':
+        const celResult = await pool.query(
+          'SELECT * FROM celulares WHERE activo_id = $1',
+          [id]
+        );
+        datosEspecificos = celResult.rows[0] || null;
+        break;
+        
       case 'VEHICULO':
       case 'MAQUINARIA':
         const motResult = await pool.query(
@@ -208,6 +216,23 @@ export const crearActivo = async (req, res) => {
               datos_especificos.procesador || null,
               datos_especificos.memoria || null,
               datos_especificos.capacidad_disco || null
+            ]
+          );
+          break;
+
+        case 'CELULAR':
+          await client.query(
+            `INSERT INTO celulares 
+             (activo_id, modelo, procesador, memoria, capacidad_disco, imei_1, imei_2)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [
+              activoId,
+              datos_especificos.modelo || null,
+              datos_especificos.procesador || null,
+              datos_especificos.memoria || null,
+              datos_especificos.capacidad_disco || null,
+              datos_especificos.imei_1 || null,
+              datos_especificos.imei_2 || null
             ]
           );
           break;
@@ -336,6 +361,24 @@ export const actualizarActivo = async (req, res) => {
               datos_especificos.memoria,
               datos_especificos.capacidad_disco,
               id
+            ]
+          );
+          break;
+
+        case 'CELULAR':
+          await client.query(
+            `INSERT INTO celulares (activo_id, modelo, procesador, memoria, capacidad_disco, imei_1, imei_2)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             ON CONFLICT (activo_id) DO UPDATE 
+             SET modelo = $2, procesador = $3, memoria = $4, capacidad_disco = $5, imei_1 = $6, imei_2 = $7`,
+            [
+              id,
+              datos_especificos.modelo || null,
+              datos_especificos.procesador || null,
+              datos_especificos.memoria || null,
+              datos_especificos.capacidad_disco || null,
+              datos_especificos.imei_1 || null,
+              datos_especificos.imei_2 || null
             ]
           );
           break;

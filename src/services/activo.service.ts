@@ -9,6 +9,7 @@ export type TipoActivo =
   | 'MUEBLES_HOGAR'
   | 'UTENSILIO_EQUIPAMIENTO'
   | 'EQUIPO_TECNOLOGICO'
+  | 'CELULAR'
   | 'VEHICULO'
   | 'MAQUINARIA'
   | 'TERRENO';
@@ -54,7 +55,7 @@ export interface Activo {
   marca_nombre?: string;
   proveedor_nombre?: string;
   // Datos específicos por tipo
-  datos_especificos?: EquipoTecnologico | Motorizado | Terreno | null;
+  datos_especificos?: EquipoTecnologico | Celular | Motorizado | Terreno | null;
 }
 
 export interface EquipoTecnologico {
@@ -63,6 +64,16 @@ export interface EquipoTecnologico {
   procesador?: string | null;
   memoria?: string | null;
   capacidad_disco?: string | null;
+}
+
+export interface Celular {
+  activo_id: number;
+  modelo?: string | null;
+  procesador?: string | null;
+  memoria?: string | null;
+  capacidad_disco?: string | null;
+  imei_1?: string | null;
+  imei_2?: string | null;
 }
 
 export interface Motorizado {
@@ -98,7 +109,7 @@ export interface CrearActivoDTO {
   lugar_id: number;
   marca_id?: number;
   proveedor_id?: number;
-  datos_especificos?: Partial<EquipoTecnologico | Motorizado | Terreno>;
+  datos_especificos?: Partial<EquipoTecnologico | Celular | Motorizado | Terreno>;
 }
 
 // Helper para obtener nombre legible de la clasificación
@@ -126,6 +137,7 @@ export const getNombreTipoActivo = (tipo: TipoActivo): string => {
     MUEBLES_HOGAR: 'Muebles de Hogar',
     UTENSILIO_EQUIPAMIENTO: 'Utensilio y Equipamiento',
     EQUIPO_TECNOLOGICO: 'Equipo Tecnológico',
+    CELULAR: 'Celular',
     VEHICULO: 'Vehículo',
     MAQUINARIA: 'Maquinaria',
     TERRENO: 'Terreno',
