@@ -74,6 +74,10 @@ export interface Celular {
   capacidad_disco?: string | null;
   imei_1?: string | null;
   imei_2?: string | null;
+  accesorios?: string | null;
+  estado_operativo?: string | null;
+  fecha_baja?: string | null;
+  motivo_baja?: string | null;
 }
 
 export interface Motorizado {
@@ -99,6 +103,7 @@ export interface CrearActivoDTO {
   tipo_activo: TipoActivo;
   clasificacion?: ClasificacionActivo;
   codigo?: string; // Opcional porque se genera automáticamente en el backend
+  serie?: string;
   imagen?: string;
   estado?: EstadoActivo;
   descripcion?: string;

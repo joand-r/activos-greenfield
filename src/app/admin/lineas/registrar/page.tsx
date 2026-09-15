@@ -13,6 +13,9 @@ import {
   EstadoLinea,
 } from "@/services/linea.service";
 import { activoService, Activo } from "@/services/activo.service";
+import { lugarService, Lugar } from "@/services/lugar.service";
+import { marcaService, Marca } from "@/services/marca.service";
+import { proveedorService, Proveedor } from "@/services/proveedor.service";
 import { useToast } from "@/contexts/ToastContext";
 
 const RegistrarLineaPage = () => {
@@ -24,6 +27,9 @@ const RegistrarLineaPage = () => {
   const [planes, setPlanes] = useState<PlanTelefonia[]>([]);
   const [personalList, setPersonalList] = useState<Personal[]>([]);
   const [celulares, setCelulares] = useState<Activo[]>([]);
+  const [lugares, setLugares] = useState<Lugar[]>([]);
+  const [marcas, setMarcas] = useState<Marca[]>([]);
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
 
   // Form states
   const [numero, setNumero] = useState("");
@@ -36,6 +42,7 @@ const RegistrarLineaPage = () => {
   // Modales rápidos
   const [modalNuevoPlan, setModalNuevoPlan] = useState(false);
   const [modalNuevoPersonal, setModalNuevoPersonal] = useState(false);
+  const [modalNuevoCelular, setModalNuevoCelular] = useState(false);
 
   // Estados de formularios rápidos
   const [datosNuevoPlan, setDatosNuevoPlan] = useState<{
@@ -56,6 +63,38 @@ const RegistrarLineaPage = () => {
     cargo: "",
   });
 
+  const [datosNuevoCelular, setDatosNuevoCelular] = useState<{
+    nombre: string;
+    modelo: string;
+    marca_id: string;
+    lugar_id: string;
+    proveedor_id: string;
+    serie: string;
+    memoria: string;
+    capacidad_disco: string;
+    procesador: string;
+    imei_1: string;
+    imei_2: string;
+    accesorios: string;
+    fecha_adquision: string;
+    costo_adquision: string;
+  }>({
+    nombre: "",
+    modelo: "",
+    marca_id: "",
+    lugar_id: "",
+    proveedor_id: "",
+    serie: "",
+    memoria: "",
+    capacidad_disco: "",
+    procesador: "",
+    imei_1: "",
+    imei_2: "",
+    accesorios: "",
+    fecha_adquision: "",
+    costo_adquision: "",
+  });
+
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -66,17 +105,24 @@ const RegistrarLineaPage = () => {
   const cargarDatos = async () => {
     showLoading();
     try {
-      const [telefoniasData, planesData, personalData, celularesData] = await Promise.all([
-        lineaService.getTelefonias(),
-        lineaService.getPlanes({ estado: "DISPONIBLE" }),
-        lineaService.getPersonal(),
-        activoService.getAll({ tipo_activo: "CELULAR" }),
-      ]);
+      const [telefoniasData, planesData, personalData, celularesData, lugaresData, marcasData, proveedoresData] =
+        await Promise.all([
+          lineaService.getTelefonias(),
+          lineaService.getPlanes({ estado: "DISPONIBLE" }),
+          lineaService.getPersonal(),
+          activoService.getAll({ tipo_activo: "CELULAR" }),
+          lugarService.getAll(),
+          marcaService.getAll(),
+          proveedorService.getAll(),
+        ]);
 
       setTelefonias(telefoniasData || []);
       setPlanes(planesData || []);
       setPersonalList((personalData || []).filter((p) => p.estado === "ACTIVO"));
       setCelulares(celularesData || []);
+      setLugares(lugaresData || []);
+      setMarcas(marcasData || []);
+      setProveedores(proveedoresData || []);
 
       if (planesData && planesData.length > 0 && !planId) {
         setPlanId(String(planesData[0].id));
@@ -171,6 +217,72 @@ const RegistrarLineaPage = () => {
     }
   };
 
+  const abrirModalNuevoCelular = () => {
+    setDatosNuevoCelular({
+      nombre: "",
+      modelo: "",
+      marca_id: marcas.length > 0 ? String(marcas[0].id) : "",
+      lugar_id: lugares.length > 0 ? String(lugares[0].id) : "",
+      proveedor_id: "",
+      serie: "",
+      memoria: "",
+      capacidad_disco: "",
+      procesador: "",
+      imei_1: "",
+      imei_2: "",
+      accesorios: "",
+      fecha_adquision: "",
+      costo_adquision: "",
+    });
+    setModalNuevoCelular(true);
+  };
+
+  const handleCrearCelularSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!datosNuevoCelular.nombre.trim() || !datosNuevoCelular.modelo.trim() || !datosNuevoCelular.lugar_id) {
+      toast.error("Campos requeridos", "Por favor completa el nombre, modelo y ubicación del celular");
+      return;
+    }
+
+    showLoading();
+    try {
+      const nuevoActivo = await activoService.create({
+        nombre: datosNuevoCelular.nombre.trim(),
+        tipo_activo: "CELULAR",
+        clasificacion: "MENOR",
+        lugar_id: parseInt(datosNuevoCelular.lugar_id),
+        marca_id: datosNuevoCelular.marca_id ? parseInt(datosNuevoCelular.marca_id) : undefined,
+        proveedor_id: datosNuevoCelular.proveedor_id ? parseInt(datosNuevoCelular.proveedor_id) : undefined,
+        serie: datosNuevoCelular.serie.trim() || undefined,
+        estado: "DISPONIBLE",
+        fecha_adquision: datosNuevoCelular.fecha_adquision || undefined,
+        costo_adquision: datosNuevoCelular.costo_adquision ? parseFloat(datosNuevoCelular.costo_adquision) : undefined,
+        datos_especificos: {
+          modelo: datosNuevoCelular.modelo.trim(),
+          procesador: datosNuevoCelular.procesador.trim() || undefined,
+          memoria: datosNuevoCelular.memoria.trim() || undefined,
+          capacidad_disco: datosNuevoCelular.capacidad_disco.trim() || undefined,
+          imei_1: datosNuevoCelular.imei_1.trim() || undefined,
+          imei_2: datosNuevoCelular.imei_2.trim() || undefined,
+          accesorios: datosNuevoCelular.accesorios.trim() || undefined,
+        },
+      });
+
+      toast.success("Celular registrado", "El celular ha sido creado y seleccionado automáticamente");
+      setModalNuevoCelular(false);
+
+      const celularesActualizados = await activoService.getAll({ tipo_activo: "CELULAR" });
+      setCelulares(celularesActualizados || []);
+      if (nuevoActivo?.id) {
+        setActivoId(String(nuevoActivo.id));
+      }
+    } catch (err: any) {
+      toast.error("Error al registrar celular", err.message || "No se pudo registrar el celular");
+    } finally {
+      hideLoading();
+    }
+  };
+
   const planSeleccionado = planes.find((p) => String(p.id) === planId);
   const colaboradorSeleccionado = personalList.find((p) => String(p.id) === personalId);
   const celularSeleccionado = celulares.find((c) => String(c.id) === activoId);
@@ -250,17 +362,17 @@ const RegistrarLineaPage = () => {
                     <label className="block text-xs font-bold text-black dark:text-white">
                       Equipo Celular
                     </label>
-                    <Link
-                      href="/admin/activos/registrar"
-                      target="_blank"
-                      className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
-                      title="Registrar un nuevo celular en el módulo de Activos"
+                    <button
+                      type="button"
+                      onClick={abrirModalNuevoCelular}
+                      className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                      title="Registrar un nuevo celular y seleccionarlo automáticamente"
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
                       Nuevo Celular
-                    </Link>
+                    </button>
                   </div>
                   <select
                     value={activoId}
@@ -684,6 +796,271 @@ const RegistrarLineaPage = () => {
                   className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 transition-all cursor-pointer"
                 >
                   Guardar Personal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MINI MODAL: REGISTRAR NUEVO CELULAR RÁPIDO */}
+      {modalNuevoCelular && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-xl rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl my-8">
+            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-black dark:text-white">
+                    Registrar Nuevo Equipo Celular
+                  </h3>
+                  <p className="text-[11px] text-gray-500">
+                    Se creará en el inventario y se seleccionará automáticamente
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalNuevoCelular(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleCrearCelularSubmit} className="space-y-4 text-xs max-h-[75vh] overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
+                    Nombre del Dispositivo <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={datosNuevoCelular.nombre}
+                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, nombre: e.target.value })}
+                    placeholder="Ej: Samsung Galaxy A54"
+                    required
+                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
+                    Modelo <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={datosNuevoCelular.modelo}
+                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, modelo: e.target.value })}
+                    placeholder="Ej: SM-A546E / 128GB"
+                    required
+                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
+                    Ubicación / Lugar <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={datosNuevoCelular.lugar_id}
+                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, lugar_id: e.target.value })}
+                    required
+                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
+                  >
+                    <option value="">-- Seleccionar Ubicación --</option>
+                    {lugares.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.nombre} ({l.tipo})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
+                    Marca
+                  </label>
+                  <select
+                    value={datosNuevoCelular.marca_id}
+                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, marca_id: e.target.value })}
+                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
+                  >
+                    <option value="">-- Seleccionar Marca --</option>
+                    {marcas.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
+                    Número de Serie
+                  </label>
+                  <input
+                    type="text"
+                    value={datosNuevoCelular.serie}
+                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, serie: e.target.value })}
+                    placeholder="Ej: R58N71ABCDE"
+                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
+                    Procesador
+                  </label>
+                  <input
+                    type="text"
+                    value={datosNuevoCelular.procesador}
+                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, procesador: e.target.value })}
+                    placeholder="Ej: Octa-Core 2.4 GHz"
+                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
+                    Memoria RAM
+                  </label>
+                  <input
+                    type="text"
+                    value={datosNuevoCelular.memoria}
+                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, memoria: e.target.value })}
+                    placeholder="Ej: 8 GB"
+                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
+                    Almacenamiento Interno
+                  </label>
+                  <input
+                    type="text"
+                    value={datosNuevoCelular.capacidad_disco}
+                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, capacidad_disco: e.target.value })}
+                    placeholder="Ej: 128 GB o 256 GB"
+                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
+                    IMEI 1
+                  </label>
+                  <input
+                    type="text"
+                    value={datosNuevoCelular.imei_1}
+                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, imei_1: e.target.value })}
+                    placeholder="Ej: 358943112345678"
+                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
+                    IMEI 2 (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={datosNuevoCelular.imei_2}
+                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, imei_2: e.target.value })}
+                    placeholder="Ej: 358943112345679"
+                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
+                  Accesorios Incluidos
+                </label>
+                <input
+                  type="text"
+                  value={datosNuevoCelular.accesorios}
+                  onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, accesorios: e.target.value })}
+                  placeholder="Ej: Cargador original, funda transparente, cable Tipo-C"
+                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
+                    Proveedor
+                  </label>
+                  <select
+                    value={datosNuevoCelular.proveedor_id}
+                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, proveedor_id: e.target.value })}
+                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
+                  >
+                    <option value="">-- Proveedor --</option>
+                    {proveedores.map((pr) => (
+                      <option key={pr.id} value={pr.id}>
+                        {pr.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
+                    Fecha Compra
+                  </label>
+                  <input
+                    type="date"
+                    value={datosNuevoCelular.fecha_adquision}
+                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, fecha_adquision: e.target.value })}
+                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
+                    Costo (Bs.)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={datosNuevoCelular.costo_adquision}
+                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, costo_adquision: e.target.value })}
+                    placeholder="0.00"
+                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  type="button"
+                  onClick={() => setModalNuevoCelular(false)}
+                  className="rounded-xl border border-gray-300 dark:border-gray-700 px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 transition-all cursor-pointer"
+                >
+                  Guardar y Asignar Celular
                 </button>
               </div>
             </form>
