@@ -15,13 +15,27 @@ import {
   LineasStats,
   getColorEstadoLinea,
   getNombreEstadoLinea,
+  CelularLinea,
+  HistorialLineaResponse,
 } from "@/services/linea.service";
-import { activoService, Activo } from "@/services/activo.service";
+import { activoService } from "@/services/activo.service";
 import { lugarService, Lugar } from "@/services/lugar.service";
 import { marcaService, Marca } from "@/services/marca.service";
 import { proveedorService, Proveedor } from "@/services/proveedor.service";
 import InfoModal from "@/components/ui/InfoModal";
 import { useToast } from "@/contexts/ToastContext";
+import {
+  ModalDetalleLinea,
+  ModalHistorialLinea,
+  ModalTransferirLinea,
+  ModalCambiarPlanLinea,
+  ModalCambiarEquipoLinea,
+  ModalDarBajaLinea,
+  ModalEdicionLinea,
+  ModalCrearEditarPlan,
+  ModalCrearEditarPersonal,
+  ModalCrearCelular,
+} from "@/components/modals";
 
 const ListaLineasPage = () => {
   const { showLoading, hideLoading } = useLoading();
@@ -31,7 +45,7 @@ const ListaLineasPage = () => {
   const [telefonias, setTelefonias] = useState<Telefonia[]>([]);
   const [planes, setPlanes] = useState<PlanTelefonia[]>([]);
   const [personalList, setPersonalList] = useState<Personal[]>([]);
-  const [celulares, setCelulares] = useState<Activo[]>([]);
+  const [celulares, setCelulares] = useState<CelularLinea[]>([]);
   const [lugares, setLugares] = useState<Lugar[]>([]);
   const [marcas, setMarcas] = useState<Marca[]>([]);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
@@ -54,6 +68,7 @@ const ListaLineasPage = () => {
   const [modalDetalle, setModalDetalle] = useState(false);
   const [modalTransferir, setModalTransferir] = useState(false);
   const [modalCambiarPlan, setModalCambiarPlan] = useState(false);
+  const [modalCambiarEquipo, setModalCambiarEquipo] = useState(false);
   const [modalBaja, setModalBaja] = useState(false);
   const [modalHistorial, setModalHistorial] = useState(false);
   const [modalEdicion, setModalEdicion] = useState(false);
@@ -63,6 +78,8 @@ const ListaLineasPage = () => {
 
   const [lineaSeleccionada, setLineaSeleccionada] = useState<Linea | null>(null);
   const [historialList, setHistorialList] = useState<HistorialLinea[]>([]);
+  const [historialDetalle, setHistorialDetalle] = useState<HistorialLineaResponse | null>(null);
+  const [tabHistorial, setTabHistorial] = useState<"linea" | "celular">("linea");
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
 
   // Estados de formularios modales
@@ -76,6 +93,11 @@ const ListaLineasPage = () => {
     motivo: "",
   });
 
+  const [cambiarEquipoData, setCambiarEquipoData] = useState({
+    activo_nuevo_id: "",
+    motivo: "",
+  });
+
   const [bajaData, setBajaData] = useState({
     motivo_baja: "",
     fecha_baja: "",
@@ -84,6 +106,7 @@ const ListaLineasPage = () => {
   const [edicionData, setEdicionData] = useState({
     numero: "",
     activo_id: "",
+    personal_id: "",
     observaciones: "",
   });
 
@@ -141,32 +164,33 @@ const ListaLineasPage = () => {
   const cargarDatos = async () => {
     showLoading();
     try {
-      const [lineasData, telefoniasData, planesData, personalData, statsData, celularesData, lugaresData, marcasData, proveedoresData] =
-        await Promise.all([
-          lineaService.getAll(),
-          lineaService.getTelefonias(),
-          lineaService.getPlanes(),
-          lineaService.getPersonal(),
-          lineaService.getStats(),
-          activoService.getAll({ tipo_activo: "CELULAR" }),
-          lugarService.getAll(),
-          marcaService.getAll(),
-          proveedorService.getAll(),
-        ]);
+      // 1. Carga inmediata de datos principales para renderizado ultra rápido
+      const [lineasData, telefoniasData, statsData] = await Promise.all([
+        lineaService.getAll(),
+        lineaService.getTelefonias(),
+        lineaService.getStats(),
+      ]);
 
       setLineas(lineasData || []);
       setTelefonias(telefoniasData || []);
-      setPlanes(planesData || []);
-      setPersonalList(personalData || []);
-      setCelulares(celularesData || []);
-      setLugares(lugaresData || []);
-      setMarcas(marcasData || []);
-      setProveedores(proveedoresData || []);
       if (statsData) setStats(statsData);
+      hideLoading();
+
+      // 2. Carga secundaria no bloqueante en segundo plano para modales
+      Promise.all([
+        lineaService.getPlanes(),
+        lineaService.getPersonal(),
+        lineaService.getCelulares(),
+      ]).then(([planesData, personalData, celularesData]) => {
+        setPlanes(planesData || []);
+        setPersonalList(personalData || []);
+        setCelulares(celularesData || []);
+      }).catch((err) => {
+        console.warn("Carga en segundo plano de datos de modales:", err);
+      });
     } catch (err: any) {
       console.error("Error al cargar datos:", err);
       setError(err.message || "Error al cargar las líneas telefónicas");
-    } finally {
       hideLoading();
     }
   };
@@ -245,6 +269,42 @@ const ListaLineasPage = () => {
     }
   };
 
+  // Cambiar Equipo Celular
+  const abrirModalCambiarEquipo = (l: Linea) => {
+    setLineaSeleccionada(l);
+    setCambiarEquipoData({
+      activo_nuevo_id: l.activo_id ? String(l.activo_id) : "",
+      motivo: "",
+    });
+    setModalCambiarEquipo(true);
+  };
+
+  const handleCambiarEquipoSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lineaSeleccionada) return;
+
+    if (!cambiarEquipoData.motivo.trim()) {
+      toast.error("Campo requerido", "El motivo del cambio de equipo es obligatorio");
+      return;
+    }
+
+    showLoading();
+    try {
+      await lineaService.cambiarEquipo(lineaSeleccionada.id, {
+        activo_nuevo_id: cambiarEquipoData.activo_nuevo_id ? parseInt(cambiarEquipoData.activo_nuevo_id) : null,
+        motivo: cambiarEquipoData.motivo.trim(),
+      });
+
+      toast.success("Equipo actualizado", "El equipo celular de la línea ha sido cambiado exitosamente");
+      setModalCambiarEquipo(false);
+      cargarDatos();
+    } catch (err: any) {
+      toast.error("Error al cambiar equipo", err.message || "No se pudo cambiar el equipo celular");
+    } finally {
+      hideLoading();
+    }
+  };
+
   // Dar de Baja
   const abrirModalBaja = (l: Linea) => {
     setLineaSeleccionada(l);
@@ -284,11 +344,14 @@ const ListaLineasPage = () => {
     setLineaSeleccionada(l);
     setModalHistorial(true);
     setCargandoHistorial(true);
+    setTabHistorial("linea");
     try {
       const data = await lineaService.getHistorial(l.id);
-      setHistorialList(data || []);
+      setHistorialDetalle(data);
+      setHistorialList(data.eventos_linea || []);
     } catch (err: any) {
       toast.error("Error al cargar historial", err.message || "No se pudo cargar el historial");
+      setHistorialDetalle(null);
       setHistorialList([]);
     } finally {
       setCargandoHistorial(false);
@@ -301,6 +364,7 @@ const ListaLineasPage = () => {
     setEdicionData({
       numero: l.numero,
       activo_id: l.activo_id ? String(l.activo_id) : "",
+      personal_id: l.personal_id ? String(l.personal_id) : "",
       observaciones: l.observaciones || "",
     });
     setModalEdicion(true);
@@ -318,6 +382,7 @@ const ListaLineasPage = () => {
       await lineaService.update(lineaSeleccionada.id, {
         numero: edicionData.numero.trim(),
         activo_id: edicionData.activo_id ? parseInt(edicionData.activo_id) : null,
+        personal_id: edicionData.personal_id ? parseInt(edicionData.personal_id) : null,
         observaciones: edicionData.observaciones.trim() || undefined,
       });
 
@@ -467,7 +532,7 @@ const ListaLineasPage = () => {
       toast.success("Celular registrado", "El celular ha sido creado y seleccionado automáticamente");
       setModalNuevoCelular(false);
 
-      const celularesActualizados = await activoService.getAll({ tipo_activo: "CELULAR" });
+      const celularesActualizados = await lineaService.getCelulares();
       setCelulares(celularesActualizados || []);
       if (nuevoActivo?.id) {
         setEdicionData((prev) => ({ ...prev, activo_id: String(nuevoActivo.id) }));
@@ -969,10 +1034,23 @@ const ListaLineasPage = () => {
                               <button
                                 onClick={() => abrirModalCambiarPlan(linea)}
                                 className="w-7 h-7 rounded-lg bg-teal-500 hover:bg-teal-600 text-white inline-flex items-center justify-center shadow-sm cursor-pointer"
-                                title="Cambiar Plan Tarifario"
+                                title="Cambiar Plan de Telefonía"
                               >
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                              </button>
+                            )}
+
+                            {/* Cambiar / Reemplazar Equipo Celular */}
+                            {linea.estado !== "BAJA" && (
+                              <button
+                                onClick={() => abrirModalCambiarEquipo(linea)}
+                                className="w-7 h-7 rounded-lg bg-violet-600 hover:bg-violet-700 text-white inline-flex items-center justify-center shadow-sm cursor-pointer"
+                                title="Cambiar / Reemplazar Equipo Celular"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                 </svg>
                               </button>
                             )}
@@ -981,7 +1059,7 @@ const ListaLineasPage = () => {
                             <button
                               onClick={() => abrirModalHistorial(linea)}
                               className="w-7 h-7 rounded-lg bg-purple-500 hover:bg-purple-600 text-white inline-flex items-center justify-center shadow-sm cursor-pointer"
-                              title="Historial de Movimientos"
+                              title="Historial de Movimientos y Cambios de Equipo"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1031,996 +1109,103 @@ const ListaLineasPage = () => {
         </div>
       </section>
 
-      {/* MODAL DETALLE DE LÍNEA */}
-      {modalDetalle && lineaSeleccionada && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-xl rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3 mb-4">
-              <h3 className="text-base font-bold text-black dark:text-white flex items-center gap-2">
-                <span>Línea Telefónica #{lineaSeleccionada.numero}</span>
-                <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${getColorEstadoLinea(lineaSeleccionada.estado)}`}>
-                  {getNombreEstadoLinea(lineaSeleccionada.estado)}
-                </span>
-              </h3>
-              <button onClick={() => setModalDetalle(false)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 cursor-pointer">
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+      {/* ================= MODALES MODULARIZADOS ================= */}
+      <ModalDetalleLinea
+        isOpen={modalDetalle}
+        linea={lineaSeleccionada}
+        onClose={() => setModalDetalle(false)}
+      />
 
-            <div className="space-y-4 text-xs">
-              <div className="rounded-xl bg-gray-50 dark:bg-gray-800/50 p-4 border border-gray-200 dark:border-gray-700">
-                <h4 className="text-[10px] font-bold uppercase tracking-wider text-primary mb-2">Colaborador Asignado</h4>
-                {lineaSeleccionada.personal_nombre ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <p className="text-gray-500">Nombre:</p>
-                      <p className="font-bold text-black dark:text-white">{lineaSeleccionada.personal_nombre}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Cargo / Depto:</p>
-                      <p className="font-medium text-black dark:text-white">
-                        {lineaSeleccionada.personal_cargo} • {lineaSeleccionada.personal_departamento}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-gray-500 italic">Actualmente sin colaborador asignado (Línea disponible en Stock).</p>
-                )}
-              </div>
+      <ModalTransferirLinea
+        isOpen={modalTransferir}
+        linea={lineaSeleccionada}
+        personalList={personalList}
+        transferirData={transferirData}
+        setTransferirData={setTransferirData}
+        onSubmit={handleTransferirSubmit}
+        onClose={() => setModalTransferir(false)}
+      />
 
-              <div className="rounded-xl bg-gray-50 dark:bg-gray-800/50 p-4 border border-gray-200 dark:border-gray-700">
-                <h4 className="text-[10px] font-bold uppercase tracking-wider text-primary mb-2">Plan y Tarifa</h4>
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <p className="text-gray-500">Operadora:</p>
-                    <p className="font-bold text-black dark:text-white">{lineaSeleccionada.telefonia_nombre}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500">Plan:</p>
-                    <p className="font-bold text-black dark:text-white">{lineaSeleccionada.plan_nombre}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500">Costo Mensual:</p>
-                    <p className="font-bold text-emerald-600 dark:text-emerald-400">
-                      Bs. {parseFloat(String(lineaSeleccionada.plan_costo || 0)).toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              </div>
+      <ModalCambiarPlanLinea
+        isOpen={modalCambiarPlan}
+        linea={lineaSeleccionada}
+        planes={planes}
+        cambiarPlanData={cambiarPlanData}
+        setCambiarPlanData={setCambiarPlanData}
+        onSubmit={handleCambiarPlanSubmit}
+        onClose={() => setModalCambiarPlan(false)}
+      />
 
-              <div className="rounded-xl bg-gray-50 dark:bg-gray-800/50 p-4 border border-gray-200 dark:border-gray-700">
-                <h4 className="text-[10px] font-bold uppercase tracking-wider text-primary mb-2">Equipo Celular y Asignación</h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-gray-500">Celular Vinculado:</p>
-                    {lineaSeleccionada.celular_codigo ? (
-                      <p className="font-bold text-black dark:text-white">
-                        <span className="font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs mr-1 font-bold">
-                          {lineaSeleccionada.celular_codigo}
-                        </span>
-                        {lineaSeleccionada.celular_nombre} {lineaSeleccionada.celular_modelo ? `— ${lineaSeleccionada.celular_modelo}` : ""}
-                      </p>
-                    ) : (
-                      <p className="font-medium text-gray-500 italic">Solo Chip / Sin Celular</p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-gray-500">Fecha Asignación:</p>
-                    <p className="font-medium text-black dark:text-white">{lineaSeleccionada.fecha_asignacion || "N/A"}</p>
-                  </div>
-                  {lineaSeleccionada.celular_imei_1 && (
-                    <div>
-                      <p className="text-gray-500">IMEI 1:</p>
-                      <p className="font-mono text-xs font-bold text-black dark:text-white">{lineaSeleccionada.celular_imei_1}</p>
-                    </div>
-                  )}
-                  {lineaSeleccionada.celular_imei_2 && (
-                    <div>
-                      <p className="text-gray-500">IMEI 2:</p>
-                      <p className="font-mono text-xs font-bold text-black dark:text-white">{lineaSeleccionada.celular_imei_2}</p>
-                    </div>
-                  )}
-                  {lineaSeleccionada.celular_memoria && (
-                    <div>
-                      <p className="text-gray-500">Memoria RAM:</p>
-                      <p className="font-medium text-black dark:text-white">{lineaSeleccionada.celular_memoria}</p>
-                    </div>
-                  )}
-                  {lineaSeleccionada.celular_capacidad && (
-                    <div>
-                      <p className="text-gray-500">Almacenamiento:</p>
-                      <p className="font-medium text-black dark:text-white">{lineaSeleccionada.celular_capacidad}</p>
-                    </div>
-                  )}
-                </div>
+      <ModalCambiarEquipoLinea
+        isOpen={modalCambiarEquipo}
+        linea={lineaSeleccionada}
+        celulares={celulares}
+        cambiarEquipoData={cambiarEquipoData}
+        setCambiarEquipoData={setCambiarEquipoData}
+        onSubmit={handleCambiarEquipoSubmit}
+        onClose={() => setModalCambiarEquipo(false)}
+      />
 
-                {lineaSeleccionada.estado === "BAJA" && (
-                  <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-900/50">
-                    <p className="text-red-600 font-bold text-[10px] uppercase">Datos de Baja</p>
-                    <p className="text-gray-700 dark:text-gray-300 mt-0.5">
-                      <strong>Fecha de Baja:</strong> {lineaSeleccionada.fecha_baja || "N/A"}
-                    </p>
-                    <p className="text-gray-700 dark:text-gray-300 mt-0.5">
-                      <strong>Motivo:</strong> {lineaSeleccionada.motivo_baja || "No especificado"}
-                    </p>
-                  </div>
-                )}
-              </div>
+      <ModalDarBajaLinea
+        isOpen={modalBaja}
+        linea={lineaSeleccionada}
+        bajaData={bajaData}
+        setBajaData={setBajaData}
+        onSubmit={handleBajaSubmit}
+        onClose={() => setModalBaja(false)}
+      />
 
-              {lineaSeleccionada.observaciones && (
-                <div className="p-3 bg-gray-50 dark:bg-gray-800/30 rounded-xl">
-                  <p className="text-gray-500 font-bold">Observaciones:</p>
-                  <p className="text-black dark:text-white mt-0.5">{lineaSeleccionada.observaciones}</p>
-                </div>
-              )}
-            </div>
+      <ModalHistorialLinea
+        isOpen={modalHistorial}
+        linea={lineaSeleccionada}
+        historialList={historialList}
+        historialDetalle={historialDetalle}
+        cargandoHistorial={cargandoHistorial}
+        tabHistorial={tabHistorial}
+        setTabHistorial={setTabHistorial}
+        onClose={() => setModalHistorial(false)}
+      />
 
-            <div className="flex justify-end pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
-              <button
-                onClick={() => setModalDetalle(false)}
-                className="rounded-xl bg-primary px-5 py-2 text-xs font-bold text-white hover:bg-primary/90 transition-all cursor-pointer"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ModalEdicionLinea
+        isOpen={modalEdicion}
+        linea={lineaSeleccionada}
+        celulares={celulares}
+        personalList={personalList}
+        editData={edicionData}
+        setEditData={setEdicionData}
+        onSubmit={handleEdicionSubmit}
+        onClose={() => setModalEdicion(false)}
+      />
 
-      {/* MODAL TRANSFERIR A OTRO PERSONAL */}
-      {modalTransferir && lineaSeleccionada && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-black dark:text-white mb-2">
-              Transferir Línea #{lineaSeleccionada.numero}
-            </h3>
-            <p className="text-xs text-body-color dark:text-gray-400 mb-4">
-              Asigna esta línea telefónica a otro colaborador y registra el motivo en la bitácora histórica.
-            </p>
-            <form onSubmit={handleTransferirSubmit} className="space-y-4">
-              <div>
-                <p className="text-[10px] font-bold text-gray-500 uppercase">Colaborador Actual</p>
-                <p className="text-sm font-bold text-black dark:text-white">
-                  {lineaSeleccionada.personal_nombre || "Sin Asignar (En Stock)"}
-                </p>
-              </div>
+      <ModalCrearEditarPlan
+        isOpen={modalNuevoPlan}
+        modoEdicion={false}
+        telefonias={telefonias}
+        formData={datosNuevoPlan}
+        setFormData={setDatosNuevoPlan}
+        onSubmit={handleCrearPlanSubmit}
+        onClose={() => setModalNuevoPlan(false)}
+      />
 
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-black dark:text-white">
-                    Nuevo Colaborador Responsable <span className="text-red-500">*</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={abrirModalNuevoPersonal}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline cursor-pointer"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Nuevo Personal
-                  </button>
-                </div>
-                <select
-                  value={transferirData.personal_nuevo_id}
-                  onChange={(e) => setTransferirData({ ...transferirData, personal_nuevo_id: e.target.value })}
-                  required
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                >
-                  <option value="">-- Seleccionar Nuevo Colaborador --</option>
-                  {personalList
-                    .filter((p) => p.id !== lineaSeleccionada.personal_id && p.estado === "ACTIVO")
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nombre} — {p.cargo} ({p.departamento})
-                      </option>
-                    ))}
-                </select>
-              </div>
+      <ModalCrearEditarPersonal
+        isOpen={modalNuevoPersonal}
+        modoEdicion={false}
+        formData={datosNuevoPersonal}
+        setFormData={setDatosNuevoPersonal}
+        onSubmit={handleCrearPersonalSubmit}
+        onClose={() => setModalNuevoPersonal(false)}
+      />
 
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Motivo de la Transferencia
-                </label>
-                <textarea
-                  rows={2}
-                  value={transferirData.motivo}
-                  onChange={(e) => setTransferirData({ ...transferirData, motivo: e.target.value })}
-                  placeholder="Ej: Cambio de puesto, reasignación de chip..."
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setModalTransferir(false)}
-                  className="rounded-xl border border-gray-300 dark:border-gray-700 px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition-all cursor-pointer"
-                >
-                  Confirmar Transferencia
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL CAMBIAR PLAN */}
-      {modalCambiarPlan && lineaSeleccionada && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-black dark:text-white mb-2">
-              Cambiar Plan de Línea #{lineaSeleccionada.numero}
-            </h3>
-            <p className="text-xs text-body-color dark:text-gray-400 mb-4">
-              Selecciona el nuevo plan tarifario contratado para esta línea.
-            </p>
-            <form onSubmit={handleCambiarPlanSubmit} className="space-y-4">
-              <div>
-                <p className="text-[10px] font-bold text-gray-500 uppercase">Plan Actual</p>
-                <p className="text-sm font-bold text-black dark:text-white">
-                  [{lineaSeleccionada.telefonia_nombre}] {lineaSeleccionada.plan_nombre} (Bs. {parseFloat(String(lineaSeleccionada.plan_costo || 0)).toFixed(2)}/mes)
-                </p>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-black dark:text-white">
-                    Nuevo Plan <span className="text-red-500">*</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={abrirModalNuevoPlan}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline cursor-pointer"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Nuevo Plan
-                  </button>
-                </div>
-                <select
-                  value={cambiarPlanData.plan_nuevo_id}
-                  onChange={(e) => setCambiarPlanData({ ...cambiarPlanData, plan_nuevo_id: e.target.value })}
-                  required
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                >
-                  <option value="">-- Seleccionar Nuevo Plan --</option>
-                  {telefonias.map((tel) => {
-                    const planesDeTel = planes.filter((p) => p.telefonia_id === tel.id && p.estado === "DISPONIBLE");
-                    if (planesDeTel.length === 0) return null;
-                    return (
-                      <optgroup key={tel.id} label={`Telefonía ${tel.nombre}`}>
-                        {planesDeTel.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {tel.nombre} — {p.nombre} (Bs. {parseFloat(String(p.costo)).toFixed(2)}/mes)
-                          </option>
-                        ))}
-                      </optgroup>
-                    );
-                  })}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Motivo del Cambio de Plan
-                </label>
-                <textarea
-                  rows={2}
-                  value={cambiarPlanData.motivo}
-                  onChange={(e) => setCambiarPlanData({ ...cambiarPlanData, motivo: e.target.value })}
-                  placeholder="Ej: Aumento de cupo de internet, cambio de tarifa corporativa..."
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setModalCambiarPlan(false)}
-                  className="rounded-xl border border-gray-300 dark:border-gray-700 px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-teal-600 px-4 py-2 text-xs font-bold text-white hover:bg-teal-700 transition-all cursor-pointer"
-                >
-                  Guardar Cambio de Plan
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL DAR DE BAJA */}
-      {modalBaja && lineaSeleccionada && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-rose-600 dark:text-rose-400 mb-2">
-              Dar de Baja Línea #{lineaSeleccionada.numero}
-            </h3>
-            <p className="text-xs text-body-color dark:text-gray-400 mb-4">
-              Esta acción marcará la línea como inactiva/de baja y registrará el motivo en el historial.
-            </p>
-            <form onSubmit={handleBajaSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Fecha de Baja
-                </label>
-                <input
-                  type="date"
-                  value={bajaData.fecha_baja}
-                  onChange={(e) => setBajaData({ ...bajaData, fecha_baja: e.target.value })}
-                  required
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Motivo de la Baja <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  rows={3}
-                  value={bajaData.motivo_baja}
-                  onChange={(e) => setBajaData({ ...bajaData, motivo_baja: e.target.value })}
-                  placeholder="Ej: Fin de contrato comercial, robo/extravío del chip, cancelación por desuso..."
-                  required
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setModalBaja(false)}
-                  className="rounded-xl border border-gray-300 dark:border-gray-700 px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 transition-all cursor-pointer"
-                >
-                  Confirmar Baja
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL HISTORIAL DE MOVIMIENTOS */}
-      {modalHistorial && lineaSeleccionada && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3 mb-4">
-              <h3 className="text-base font-bold text-black dark:text-white">
-                Historial de Movimientos — Línea #{lineaSeleccionada.numero}
-              </h3>
-              <button onClick={() => setModalHistorial(false)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 cursor-pointer">
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {cargandoHistorial ? (
-              <div className="py-12 text-center text-primary font-bold">Cargando eventos...</div>
-            ) : historialList.length > 0 ? (
-              <div className="relative border-l-2 border-primary/30 ml-4 space-y-6 my-4">
-                {historialList.map((item) => (
-                  <div key={item.id} className="relative pl-6">
-                    <span className="absolute -left-[9px] top-1 h-4 w-4 rounded-full bg-primary ring-4 ring-white dark:ring-gray-dark" />
-                    <div className="rounded-xl border border-black/5 dark:border-white/5 bg-gray-50 dark:bg-gray-800/40 p-3.5 shadow-sm">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-primary uppercase">{item.tipo_evento}</span>
-                        <span className="text-[10px] text-gray-500">
-                          {new Date(item.fecha).toLocaleString("es-BO")}
-                        </span>
-                      </div>
-
-                      {item.tipo_evento === "TRANSFERENCIA" && (
-                        <p className="text-xs font-medium text-black dark:text-white mt-1">
-                          Traspaso de: <strong>{item.personal_anterior_nombre || "Stock"}</strong> ➔{" "}
-                          <strong>{item.personal_nuevo_nombre}</strong>
-                        </p>
-                      )}
-
-                      {item.tipo_evento === "CAMBIO_PLAN" && (
-                        <p className="text-xs font-medium text-black dark:text-white mt-1">
-                          Cambio de Plan: <strong>{item.plan_anterior_nombre}</strong> ➔{" "}
-                          <strong>{item.plan_nuevo_nombre}</strong>
-                        </p>
-                      )}
-
-                      {item.tipo_evento === "BAJA" && (
-                        <p className="text-xs font-bold text-rose-600 mt-1">
-                          Línea dada de baja del sistema
-                        </p>
-                      )}
-
-                      {item.tipo_evento === "ASIGNACION" && (
-                        <p className="text-xs font-medium text-black dark:text-white mt-1">
-                          Asignada a: <strong>{item.personal_nuevo_nombre || "Stock inicial"}</strong>
-                          {item.activo_nuevo_codigo && (
-                            <span className="block text-[11px] text-body-color dark:text-gray-400 mt-0.5">
-                              Celular: <strong className="text-black dark:text-white">[{item.activo_nuevo_codigo}] {item.activo_nuevo_modelo || ""}</strong>
-                            </span>
-                          )}
-                        </p>
-                      )}
-
-                      {item.tipo_evento === "TRANSFERENCIA" && item.activo_nuevo_codigo && (
-                        <p className="text-[11px] text-body-color dark:text-gray-400 mt-0.5">
-                          Celular: <strong className="text-black dark:text-white">[{item.activo_nuevo_codigo}] {item.activo_nuevo_modelo || ""}</strong>
-                        </p>
-                      )}
-
-                      {item.motivo && (
-                        <p className="text-[11px] text-gray-600 dark:text-gray-300 italic mt-1">
-                          Motivo: &ldquo;{item.motivo}&rdquo;
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-8 text-center text-gray-500">
-                No hay registros previos en el historial de esta línea.
-              </div>
-            )}
-
-            <div className="flex justify-end pt-3 mt-4 border-t border-gray-200 dark:border-gray-700">
-              <button
-                onClick={() => setModalHistorial(false)}
-                className="rounded-xl bg-primary px-5 py-2 text-xs font-bold text-white hover:bg-primary/90 transition-all cursor-pointer"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL EDICIÓN RÁPIDA */}
-      {modalEdicion && lineaSeleccionada && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-black dark:text-white mb-4">
-              Editar Datos de la Línea
-            </h3>
-            <form onSubmit={handleEdicionSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Número Telefónico <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={edicionData.numero}
-                  onChange={(e) => setEdicionData({ ...edicionData, numero: e.target.value })}
-                  required
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary font-mono font-bold"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-black dark:text-white">
-                    Equipo Celular Asignado
-                  </label>
-                  <button
-                    type="button"
-                    onClick={abrirModalNuevoCelular}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline cursor-pointer"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Nuevo Celular
-                  </button>
-                </div>
-                <select
-                  value={edicionData.activo_id}
-                  onChange={(e) => setEdicionData({ ...edicionData, activo_id: e.target.value })}
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                >
-                  <option value="">-- Sin Celular (Solo Chip) --</option>
-                  {celulares.map((cel) => {
-                    const datos = cel.datos_especificos as any;
-                    const modelo = datos?.modelo;
-                    const imei1 = datos?.imei_1;
-                    return (
-                      <option key={cel.id} value={cel.id}>
-                        [{cel.codigo}] {cel.nombre} {modelo ? `— ${modelo}` : ""} {imei1 ? `(IMEI: ${imei1})` : ""}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Observaciones
-                </label>
-                <textarea
-                  rows={2}
-                  value={edicionData.observaciones}
-                  onChange={(e) => setEdicionData({ ...edicionData, observaciones: e.target.value })}
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setModalEdicion(false)}
-                  className="rounded-xl border border-gray-300 dark:border-gray-700 px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 transition-all cursor-pointer"
-                >
-                  Guardar Cambios
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MINI MODAL: CREAR PLAN RÁPIDO */}
-      {modalNuevoPlan && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3 mb-4">
-              <h3 className="text-base font-bold text-black dark:text-white">
-                Registrar Nuevo Plan Telefónico
-              </h3>
-              <button
-                type="button"
-                onClick={() => setModalNuevoPlan(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <form onSubmit={handleCrearPlanSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Telefonía <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={datosNuevoPlan.telefonia_id}
-                    onChange={(e) => setDatosNuevoPlan({ ...datosNuevoPlan, telefonia_id: e.target.value })}
-                    required
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-3 text-black dark:text-white outline-none focus:border-primary"
-                  >
-                    <option value="">-- Operadora --</option>
-                    {telefonias.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Costo (Bs.) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={datosNuevoPlan.costo}
-                    onChange={(e) => setDatosNuevoPlan({ ...datosNuevoPlan, costo: e.target.value })}
-                    placeholder="Ej: 100.00"
-                    required
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-3 text-black dark:text-white outline-none focus:border-primary"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Nombre del Plan <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={datosNuevoPlan.nombre}
-                  onChange={(e) => setDatosNuevoPlan({ ...datosNuevoPlan, nombre: e.target.value })}
-                  placeholder="Ej: EMPRESARIAL 100"
-                  required
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-3 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Descripción (Opcional)
-                </label>
-                <input
-                  type="text"
-                  value={datosNuevoPlan.descripcion}
-                  onChange={(e) => setDatosNuevoPlan({ ...datosNuevoPlan, descripcion: e.target.value })}
-                  placeholder="Ej: 10GB + llamadas ilimitadas"
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-3 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  type="button"
-                  onClick={() => setModalNuevoPlan(false)}
-                  className="rounded-xl border border-gray-300 dark:border-gray-700 px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 transition-all cursor-pointer"
-                >
-                  Guardar Plan
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MINI MODAL: CREAR PERSONAL RÁPIDO */}
-      {modalNuevoPersonal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3 mb-4">
-              <h3 className="text-base font-bold text-black dark:text-white">
-                Registrar Nuevo Colaborador
-              </h3>
-              <button
-                type="button"
-                onClick={() => setModalNuevoPersonal(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <form onSubmit={handleCrearPersonalSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Nombre Completo <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={datosNuevoPersonal.nombre}
-                  onChange={(e) => setDatosNuevoPersonal({ ...datosNuevoPersonal, nombre: e.target.value })}
-                  placeholder="Ej: Daniela Robles"
-                  required
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-3 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Departamento / Área <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={datosNuevoPersonal.departamento}
-                  onChange={(e) => setDatosNuevoPersonal({ ...datosNuevoPersonal, departamento: e.target.value })}
-                  placeholder="Ej: Recursos Humanos, Contabilidad"
-                  required
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-3 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Cargo / Puesto <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={datosNuevoPersonal.cargo}
-                  onChange={(e) => setDatosNuevoPersonal({ ...datosNuevoPersonal, cargo: e.target.value })}
-                  placeholder="Ej: Jefe de Recursos Humanos"
-                  required
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-3 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  type="button"
-                  onClick={() => setModalNuevoPersonal(false)}
-                  className="rounded-xl border border-gray-300 dark:border-gray-700 px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 transition-all cursor-pointer"
-                >
-                  Guardar Personal
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MINI MODAL: CREAR CELULAR RÁPIDO */}
-      {modalNuevoCelular && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3 mb-4">
-              <h3 className="text-base font-bold text-black dark:text-white">
-                Registrar Nuevo Celular en Activos
-              </h3>
-              <button
-                type="button"
-                onClick={() => setModalNuevoCelular(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <form onSubmit={handleCrearCelularSubmit} className="space-y-3.5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Nombre / Referencia <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={datosNuevoCelular.nombre}
-                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, nombre: e.target.value })}
-                    placeholder="Ej: Galaxy S23 Corporativo"
-                    required
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Modelo <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={datosNuevoCelular.modelo}
-                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, modelo: e.target.value })}
-                    placeholder="Ej: SM-S911B / iPhone 15"
-                    required
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Marca
-                  </label>
-                  <select
-                    value={datosNuevoCelular.marca_id}
-                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, marca_id: e.target.value })}
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
-                  >
-                    <option value="">-- Seleccionar Marca --</option>
-                    {marcas.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Ubicación / Sucursal <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={datosNuevoCelular.lugar_id}
-                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, lugar_id: e.target.value })}
-                    required
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
-                  >
-                    <option value="">-- Seleccionar Ubicación --</option>
-                    {lugares.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Nro. de Serie
-                  </label>
-                  <input
-                    type="text"
-                    value={datosNuevoCelular.serie}
-                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, serie: e.target.value })}
-                    placeholder="Ej: R58N123456X"
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Procesador
-                  </label>
-                  <input
-                    type="text"
-                    value={datosNuevoCelular.procesador}
-                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, procesador: e.target.value })}
-                    placeholder="Ej: Snapdragon 8 Gen 2 / A16 Bionic"
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Memoria RAM
-                  </label>
-                  <input
-                    type="text"
-                    value={datosNuevoCelular.memoria}
-                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, memoria: e.target.value })}
-                    placeholder="Ej: 8 GB"
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Almacenamiento Interno
-                  </label>
-                  <input
-                    type="text"
-                    value={datosNuevoCelular.capacidad_disco}
-                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, capacidad_disco: e.target.value })}
-                    placeholder="Ej: 128 GB o 256 GB"
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    IMEI 1
-                  </label>
-                  <input
-                    type="text"
-                    value={datosNuevoCelular.imei_1}
-                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, imei_1: e.target.value })}
-                    placeholder="Ej: 358943112345678"
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    IMEI 2 (Opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={datosNuevoCelular.imei_2}
-                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, imei_2: e.target.value })}
-                    placeholder="Ej: 358943112345679"
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary font-mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Accesorios Incluidos
-                </label>
-                <input
-                  type="text"
-                  value={datosNuevoCelular.accesorios}
-                  onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, accesorios: e.target.value })}
-                  placeholder="Ej: Cargador original, funda transparente, cable Tipo-C"
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Proveedor
-                  </label>
-                  <select
-                    value={datosNuevoCelular.proveedor_id}
-                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, proveedor_id: e.target.value })}
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
-                  >
-                    <option value="">-- Proveedor --</option>
-                    {proveedores.map((pr) => (
-                      <option key={pr.id} value={pr.id}>
-                        {pr.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Fecha Compra
-                  </label>
-                  <input
-                    type="date"
-                    value={datosNuevoCelular.fecha_adquision}
-                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, fecha_adquision: e.target.value })}
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Costo (Bs.)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={datosNuevoCelular.costo_adquision}
-                    onChange={(e) => setDatosNuevoCelular({ ...datosNuevoCelular, costo_adquision: e.target.value })}
-                    placeholder="0.00"
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  type="button"
-                  onClick={() => setModalNuevoCelular(false)}
-                  className="rounded-xl border border-gray-300 dark:border-gray-700 px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 transition-all cursor-pointer"
-                >
-                  Guardar y Asignar Celular
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ModalCrearCelular
+        isOpen={modalNuevoCelular}
+        datosNuevoCelular={datosNuevoCelular}
+        setDatosNuevoCelular={setDatosNuevoCelular}
+        lugares={lugares}
+        marcas={marcas}
+        proveedores={proveedores}
+        onSubmit={handleCrearCelularSubmit}
+        onClose={() => setModalNuevoCelular(false)}
+      />
     </>
   );
 };

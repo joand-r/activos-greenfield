@@ -13,6 +13,7 @@ import {
 } from "@/services/linea.service";
 import InfoModal from "@/components/ui/InfoModal";
 import { useToast } from "@/contexts/ToastContext";
+import { ModalCrearEditarPlan } from "@/components/modals";
 
 const PlanesTelefoniaPage = () => {
   const { showLoading, hideLoading } = useLoading();
@@ -376,219 +377,27 @@ const PlanesTelefoniaPage = () => {
         </div>
       </section>
 
-      {/* Modal de Registro de Plan */}
-      {modalRegistroAbierto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-black dark:text-white mb-4">
-              Registrar Nuevo Plan
-            </h3>
-            <form onSubmit={handleRegistroSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Telefonía <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={datosRegistro.telefonia_id}
-                    onChange={(e) => setDatosRegistro({ ...datosRegistro, telefonia_id: e.target.value })}
-                    required
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                  >
-                    <option value="">-- Seleccionar --</option>
-                    {telefonias.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+      {/* Modales Modularizados de Plan */}
+      <ModalCrearEditarPlan
+        isOpen={modalRegistroAbierto}
+        modoEdicion={false}
+        telefonias={telefonias}
+        formData={datosRegistro}
+        setFormData={setDatosRegistro}
+        onSubmit={handleRegistroSubmit}
+        onClose={cerrarModalRegistro}
+      />
 
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Costo Mensual (Bs.) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={datosRegistro.costo}
-                    onChange={(e) => setDatosRegistro({ ...datosRegistro, costo: e.target.value })}
-                    placeholder="Ej: 100.00"
-                    required
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Nombre del Plan <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={datosRegistro.nombre}
-                    onChange={(e) => setDatosRegistro({ ...datosRegistro, nombre: e.target.value })}
-                    placeholder="Ej: EMPRESARIAL 100"
-                    required
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Estado del Plan <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={datosRegistro.estado}
-                    onChange={(e) => setDatosRegistro({ ...datosRegistro, estado: e.target.value as EstadoPlan })}
-                    required
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                  >
-                    <option value="DISPONIBLE">Disponible para asignación</option>
-                    <option value="NO_DISPONIBLE">No Disponible (Descontinuado)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Detalles / Descripción (Opcional)
-                </label>
-                <textarea
-                  rows={2}
-                  value={datosRegistro.descripcion}
-                  onChange={(e) => setDatosRegistro({ ...datosRegistro, descripcion: e.target.value })}
-                  placeholder="Ej: 10GB de internet, llamadas ilimitadas, 50 SMS..."
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={cerrarModalRegistro}
-                  className="rounded-xl border border-gray-300 dark:border-gray-700 px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 transition-all cursor-pointer"
-                >
-                  Guardar Plan
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Edición de Plan */}
-      {modalEdicionAbierto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-black dark:text-white mb-4">
-              Editar Plan Telefónico
-            </h3>
-            <form onSubmit={handleEdicionSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Telefonía <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={datosEdicion.telefonia_id}
-                    onChange={(e) => setDatosEdicion({ ...datosEdicion, telefonia_id: e.target.value })}
-                    required
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                  >
-                    {telefonias.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Costo Mensual (Bs.) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={datosEdicion.costo}
-                    onChange={(e) => setDatosEdicion({ ...datosEdicion, costo: e.target.value })}
-                    required
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Nombre del Plan <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={datosEdicion.nombre}
-                    onChange={(e) => setDatosEdicion({ ...datosEdicion, nombre: e.target.value })}
-                    required
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                    Estado del Plan <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={datosEdicion.estado}
-                    onChange={(e) => setDatosEdicion({ ...datosEdicion, estado: e.target.value as EstadoPlan })}
-                    required
-                    className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                  >
-                    <option value="DISPONIBLE">Disponible para asignación</option>
-                    <option value="NO_DISPONIBLE">No Disponible (Descontinuado)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Detalles / Descripción (Opcional)
-                </label>
-                <textarea
-                  rows={2}
-                  value={datosEdicion.descripcion}
-                  onChange={(e) => setDatosEdicion({ ...datosEdicion, descripcion: e.target.value })}
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={cerrarModalEdicion}
-                  className="rounded-xl border border-gray-300 dark:border-gray-700 px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 transition-all cursor-pointer"
-                >
-                  Actualizar Plan
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ModalCrearEditarPlan
+        isOpen={modalEdicionAbierto}
+        modoEdicion={true}
+        planSeleccionado={planSeleccionado}
+        telefonias={telefonias}
+        formData={datosEdicion}
+        setFormData={setDatosEdicion}
+        onSubmit={handleEdicionSubmit}
+        onClose={cerrarModalEdicion}
+      />
 
       <InfoModal
         isOpen={modalInfo}

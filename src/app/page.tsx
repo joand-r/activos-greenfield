@@ -166,7 +166,7 @@ export default function Home() {
       {/* Modal público de detalle de activo */}
       {activoModal && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
           onClick={(e) => { if (e.target === e.currentTarget) setActivoModal(null); }}
         >
           <div className="relative w-full max-w-lg rounded-2xl bg-white dark:bg-gray-dark shadow-2xl overflow-hidden">

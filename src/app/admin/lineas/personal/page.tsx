@@ -13,6 +13,7 @@ import {
 } from "@/services/linea.service";
 import InfoModal from "@/components/ui/InfoModal";
 import { useToast } from "@/contexts/ToastContext";
+import { ModalCrearEditarPersonal } from "@/components/modals";
 
 const PersonalPage = () => {
   const { showLoading, hideLoading } = useLoading();
@@ -379,11 +380,11 @@ const PersonalPage = () => {
 
       {/* Modal Ver Líneas Asignadas al Colaborador */}
       {modalLineasAbierto && personalSeleccionado && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-3xl rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-4 mb-4">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
+          <div className="relative w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 shadow-2xl overflow-hidden my-auto animate-scaleIn">
+            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-6 py-4 shrink-0 bg-gray-50/50 dark:bg-white/5">
               <div>
-                <h3 className="text-lg font-bold text-black dark:text-white">
+                <h3 className="text-base font-bold text-black dark:text-white leading-tight">
                   Líneas Asignadas a {personalSeleccionado.nombre}
                 </h3>
                 <p className="text-xs text-body-color dark:text-gray-400 mt-0.5">
@@ -392,104 +393,106 @@ const PersonalPage = () => {
               </div>
               <button
                 onClick={cerrarModalLineas}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 cursor-pointer"
+                className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-gray-500 hover:text-black dark:hover:text-white transition-all cursor-pointer"
               >
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            {cargandoLineas ? (
-              <div className="py-12 text-center text-primary font-bold">Cargando líneas del personal...</div>
-            ) : lineasDelPersonal.length > 0 ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  <div className="rounded-xl border border-black/5 dark:border-white/5 bg-gray-50 dark:bg-gray-800/40 p-3">
-                    <p className="text-[10px] uppercase font-bold text-gray-500">Total Líneas</p>
-                    <p className="text-xl font-bold text-primary">{lineasDelPersonal.length}</p>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 text-xs custom-scrollbar">
+              {cargandoLineas ? (
+                <div className="py-12 text-center text-primary font-bold">Cargando líneas del personal...</div>
+              ) : lineasDelPersonal.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    <div className="rounded-xl border border-black/5 dark:border-white/5 bg-gray-50 dark:bg-gray-800/40 p-3">
+                      <p className="text-[10px] uppercase font-bold text-gray-500">Total Líneas</p>
+                      <p className="text-xl font-bold text-primary">{lineasDelPersonal.length}</p>
+                    </div>
+                    <div className="rounded-xl border border-black/5 dark:border-white/5 bg-gray-50 dark:bg-gray-800/40 p-3">
+                      <p className="text-[10px] uppercase font-bold text-gray-500">Líneas Activas</p>
+                      <p className="text-xl font-bold text-emerald-600">
+                        {lineasDelPersonal.filter((l) => l.estado === "ACTIVA").length}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-black/5 dark:border-white/5 bg-gray-50 dark:bg-gray-800/40 p-3">
+                      <p className="text-[10px] uppercase font-bold text-gray-500">Costo Mensual Acumulado</p>
+                      <p className="text-xl font-bold text-emerald-600">
+                        Bs.{" "}
+                        {lineasDelPersonal
+                          .reduce(
+                            (acc, l) => (l.estado === "ACTIVA" ? acc + parseFloat(String(l.plan_costo || 0)) : acc),
+                            0
+                          )
+                          .toFixed(2)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="rounded-xl border border-black/5 dark:border-white/5 bg-gray-50 dark:bg-gray-800/40 p-3">
-                    <p className="text-[10px] uppercase font-bold text-gray-500">Líneas Activas</p>
-                    <p className="text-xl font-bold text-emerald-600">
-                      {lineasDelPersonal.filter((l) => l.estado === "ACTIVA").length}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-black/5 dark:border-white/5 bg-gray-50 dark:bg-gray-800/40 p-3">
-                    <p className="text-[10px] uppercase font-bold text-gray-500">Costo Mensual Acumulado</p>
-                    <p className="text-xl font-bold text-emerald-600">
-                      Bs.{" "}
-                      {lineasDelPersonal
-                        .reduce(
-                          (acc, l) => (l.estado === "ACTIVA" ? acc + parseFloat(String(l.plan_costo || 0)) : acc),
-                          0
-                        )
-                        .toFixed(2)}
-                    </p>
-                  </div>
-                </div>
 
-                <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
-                  <table className="w-full text-xs">
-                    <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                      <tr>
-                        <th className="px-4 py-3 text-left font-bold">Número</th>
-                        <th className="px-4 py-3 text-left font-bold">Telefonía</th>
-                        <th className="px-4 py-3 text-left font-bold">Plan</th>
-                        <th className="px-4 py-3 text-right font-bold">Costo</th>
-                        <th className="px-4 py-3 text-left font-bold">Equipo Celular</th>
-                        <th className="px-4 py-3 text-center font-bold">Estado</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                      {lineasDelPersonal.map((linea) => (
-                        <tr key={linea.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                          <td className="px-4 py-3 font-mono font-bold text-black dark:text-white text-sm">
-                            {linea.numero}
-                          </td>
-                          <td className="px-4 py-3 font-bold text-primary">
-                            {linea.telefonia_nombre}
-                          </td>
-                          <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                            {linea.plan_nombre}
-                          </td>
-                          <td className="px-4 py-3 text-right font-mono font-bold text-emerald-600">
-                            Bs. {parseFloat(String(linea.plan_costo || 0)).toFixed(2)}
-                          </td>
-                          <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                            {linea.celular_codigo ? (
-                              <span className="inline-flex items-center gap-1.5 font-bold text-black dark:text-white text-xs">
-                                <span className="font-mono text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                                  {linea.celular_codigo}
-                                </span>
-                                {linea.celular_modelo || linea.celular_nombre}
-                              </span>
-                            ) : (
-                              <span className="text-gray-400 dark:text-gray-500 italic text-xs">Solo Chip</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span
-                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold border ${getColorEstadoLinea(
-                                linea.estado
-                              )}`}
-                            >
-                              {getNombreEstadoLinea(linea.estado)}
-                            </span>
-                          </td>
+                  <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
+                    <table className="w-full text-xs">
+                      <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-bold">Número</th>
+                          <th className="px-4 py-3 text-left font-bold">Telefonía</th>
+                          <th className="px-4 py-3 text-left font-bold">Plan</th>
+                          <th className="px-4 py-3 text-right font-bold">Costo</th>
+                          <th className="px-4 py-3 text-left font-bold">Equipo Celular</th>
+                          <th className="px-4 py-3 text-center font-bold">Estado</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {lineasDelPersonal.map((linea) => (
+                          <tr key={linea.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                            <td className="px-4 py-3 font-mono font-bold text-black dark:text-white text-sm">
+                              {linea.numero}
+                            </td>
+                            <td className="px-4 py-3 font-bold text-primary">
+                              {linea.telefonia_nombre}
+                            </td>
+                            <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                              {linea.plan_nombre}
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono font-bold text-emerald-600">
+                              Bs. {parseFloat(String(linea.plan_costo || 0)).toFixed(2)}
+                            </td>
+                            <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                              {linea.celular_codigo ? (
+                                <span className="inline-flex items-center gap-1.5 font-bold text-black dark:text-white text-xs">
+                                  <span className="font-mono text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                                    {linea.celular_codigo}
+                                  </span>
+                                  {linea.celular_modelo || linea.celular_nombre}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 dark:text-gray-500 italic text-xs">Solo Chip</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold border ${getColorEstadoLinea(
+                                  linea.estado
+                                )}`}
+                              >
+                                {getNombreEstadoLinea(linea.estado)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="py-10 text-center text-gray-500">
-                Este colaborador actualmente no tiene ninguna línea telefónica asignada.
-              </div>
-            )}
+              ) : (
+                <div className="py-10 text-center text-gray-500">
+                  Este colaborador actualmente no tiene ninguna línea telefónica asignada.
+                </div>
+              )}
+            </div>
 
-            <div className="flex justify-end pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex justify-end px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-white/5 shrink-0">
               <button
                 type="button"
                 onClick={cerrarModalLineas}
@@ -502,142 +505,25 @@ const PersonalPage = () => {
         </div>
       )}
 
-      {/* Modal de Registro de Personal */}
-      {modalRegistroAbierto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-black dark:text-white mb-4">
-              Registrar Nuevo Colaborador
-            </h3>
-            <form onSubmit={handleRegistroSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Nombre Completo <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={datosRegistro.nombre}
-                  onChange={(e) => setDatosRegistro({ ...datosRegistro, nombre: e.target.value })}
-                  placeholder="Ej: Daniela Robles"
-                  required
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
+      {/* Modales Modularizados de Personal */}
+      <ModalCrearEditarPersonal
+        isOpen={modalRegistroAbierto}
+        modoEdicion={false}
+        formData={datosRegistro}
+        setFormData={setDatosRegistro}
+        onSubmit={handleRegistroSubmit}
+        onClose={cerrarModalRegistro}
+      />
 
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Departamento / Área <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={datosRegistro.departamento}
-                  onChange={(e) => setDatosRegistro({ ...datosRegistro, departamento: e.target.value })}
-                  placeholder="Ej: Recursos Humanos, Operaciones, Contabilidad"
-                  required
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Cargo / Puesto <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={datosRegistro.cargo}
-                  onChange={(e) => setDatosRegistro({ ...datosRegistro, cargo: e.target.value })}
-                  placeholder="Ej: Jefe de Recursos Humanos"
-                  required
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={cerrarModalRegistro}
-                  className="rounded-xl border border-gray-300 dark:border-gray-700 px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 transition-all cursor-pointer"
-                >
-                  Guardar Personal
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Edición de Personal */}
-      {modalEdicionAbierto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-black dark:text-white mb-4">
-              Editar Datos del Colaborador
-            </h3>
-            <form onSubmit={handleEdicionSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Nombre Completo <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={datosEdicion.nombre}
-                  onChange={(e) => setDatosEdicion({ ...datosEdicion, nombre: e.target.value })}
-                  required
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Departamento / Área <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={datosEdicion.departamento}
-                  onChange={(e) => setDatosEdicion({ ...datosEdicion, departamento: e.target.value })}
-                  required
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Cargo / Puesto <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={datosEdicion.cargo}
-                  onChange={(e) => setDatosEdicion({ ...datosEdicion, cargo: e.target.value })}
-                  required
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={cerrarModalEdicion}
-                  className="rounded-xl border border-gray-300 dark:border-gray-700 px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 transition-all cursor-pointer"
-                >
-                  Actualizar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ModalCrearEditarPersonal
+        isOpen={modalEdicionAbierto}
+        modoEdicion={true}
+        personalSeleccionado={personalSeleccionado}
+        formData={datosEdicion}
+        setFormData={setDatosEdicion}
+        onSubmit={handleEdicionSubmit}
+        onClose={cerrarModalEdicion}
+      />
 
       <InfoModal
         isOpen={modalInfo}

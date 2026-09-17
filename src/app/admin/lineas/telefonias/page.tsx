@@ -6,6 +6,7 @@ import { useLoading } from "@/contexts/LoadingContext";
 import { lineaService, Telefonia } from "@/services/linea.service";
 import InfoModal from "@/components/ui/InfoModal";
 import { useToast } from "@/contexts/ToastContext";
+import { ModalCrearEditarTelefonia } from "@/components/modals";
 
 const ListaTelefoniasPage = () => {
   const { showLoading, hideLoading } = useLoading();
@@ -211,86 +212,25 @@ const ListaTelefoniasPage = () => {
         </div>
       </section>
 
-      {/* Modal de Registro */}
-      {modalRegistroAbierto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-black dark:text-white mb-4">
-              Registrar Nueva Telefonía
-            </h3>
-            <form onSubmit={handleRegistroSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Nombre de la Operadora <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={datosRegistro.nombre}
-                  onChange={(e) => setDatosRegistro({ nombre: e.target.value })}
-                  placeholder="Ej: Tigo, Entel, Viva"
-                  required
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={cerrarModalRegistro}
-                  className="rounded-xl border border-gray-300 dark:border-gray-700 px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 transition-all cursor-pointer"
-                >
-                  Guardar Telefonía
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Modales Modularizados de Telefonía */}
+      <ModalCrearEditarTelefonia
+        isOpen={modalRegistroAbierto}
+        modoEdicion={false}
+        nombre={datosRegistro.nombre}
+        setNombre={(nombre) => setDatosRegistro({ nombre })}
+        onSubmit={handleRegistroSubmit}
+        onClose={cerrarModalRegistro}
+      />
 
-      {/* Modal de Edición */}
-      {modalEdicionAbierto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-black dark:text-white mb-4">
-              Editar Telefonía
-            </h3>
-            <form onSubmit={handleEdicionSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                  Nombre de la Operadora <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={datosEdicion.nombre}
-                  onChange={(e) => setDatosEdicion({ nombre: e.target.value })}
-                  required
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={cerrarModalEdicion}
-                  className="rounded-xl border border-gray-300 dark:border-gray-700 px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 transition-all cursor-pointer"
-                >
-                  Actualizar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ModalCrearEditarTelefonia
+        isOpen={modalEdicionAbierto}
+        modoEdicion={true}
+        telefoniaSeleccionada={telefoniaSeleccionada}
+        nombre={datosEdicion.nombre}
+        setNombre={(nombre) => setDatosEdicion({ nombre })}
+        onSubmit={handleEdicionSubmit}
+        onClose={cerrarModalEdicion}
+      />
 
       <InfoModal
         isOpen={modalInfo}

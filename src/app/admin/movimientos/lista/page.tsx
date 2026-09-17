@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Breadcrumb from "@/components/ui/Common/Breadcrumb";
 import { useState, useEffect } from "react";
@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useLoading } from "@/contexts/LoadingContext";
 import { movimientoService, Movimiento } from "@/services/movimiento.service";
 import { useToast } from "@/contexts/ToastContext";
+import { ModalDetalleMovimiento } from "@/components/modals/movimientos/ModalDetalleMovimiento";
 
 const ListaMovimientosPage = () => {
   const { showLoading, hideLoading } = useLoading();
@@ -268,114 +269,11 @@ const ListaMovimientosPage = () => {
       </section>
 
       {/* Modal de Detalle */}
-      {modalDetalle && movimientoSeleccionado && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-2xl rounded-xl bg-white dark:bg-gray-dark shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-              <h3 className="text-xl font-bold text-black dark:text-white">
-                Detalle del Movimiento {movimientoSeleccionado.codigo_movimiento}
-              </h3>
-              <button
-                onClick={cerrarModalDetalle}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="px-6 py-6">
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">ID:</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{movimientoSeleccionado.id}</p>
-                  </div>
-                  
-                  <div>
-                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Código:</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{movimientoSeleccionado.codigo_movimiento}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Activo:</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {movimientoSeleccionado.activo_nombre || movimientoSeleccionado.activo_codigo || `ID: ${movimientoSeleccionado.activo_id}`}
-                  </p>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Lugar Origen:</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {movimientoSeleccionado.lugar_origen_nombre || `ID: ${movimientoSeleccionado.lugar_origen_id}`}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Lugar Destino:</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {getLugarDestinoLabel(movimientoSeleccionado)}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Fecha:</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {formatearFecha(movimientoSeleccionado.fecha_movimiento)}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Responsable:</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{movimientoSeleccionado.responsable}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Estado:</p>
-                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${obtenerColorEstado(movimientoSeleccionado.estado)}`}>
-                    {formatearEstado(movimientoSeleccionado.estado)}
-                  </span>
-                </div>
-                
-                {movimientoSeleccionado.observaciones && (
-                  <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Observaciones:</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-3 rounded">
-                      {movimientoSeleccionado.observaciones}
-                    </p>
-                  </div>
-                )}
-
-                {/* Bloque especial para transferencias */}
-                {movimientoSeleccionado.estado === 'TRANSFERIR' && movimientoSeleccionado.nuevo_activo_id && (
-                  <div className="pt-4 border-t-2 border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
-                    <p className="text-sm font-bold text-yellow-800 dark:text-yellow-400 mb-2">Transferencia registrada</p>
-                    <p className="text-xs text-yellow-700 dark:text-yellow-500">
-                      Activo original marcado como <strong>TRANSFERIR</strong>.
-                      Se creó el nuevo activo <strong>{movimientoSeleccionado.nuevo_activo_codigo}</strong> ({movimientoSeleccionado.nuevo_activo_nombre}) en el lugar destino, heredando el estado original.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex justify-end items-center border-t border-gray-200 dark:border-gray-700 px-6 py-4">
-              <button
-                onClick={cerrarModalDetalle}
-                className="rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-all"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ModalDetalleMovimiento
+        isOpen={modalDetalle}
+        onClose={cerrarModalDetalle}
+        movimiento={movimientoSeleccionado}
+      />
     </>
   );
 };

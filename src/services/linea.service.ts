@@ -68,7 +68,7 @@ export interface Linea {
   updated_at?: string;
 }
 
-export type TipoEventoHistorial = 'ASIGNACION' | 'TRANSFERENCIA' | 'CAMBIO_PLAN' | 'BAJA' | 'REACTIVACION';
+export type TipoEventoHistorial = 'ASIGNACION' | 'TRANSFERENCIA' | 'CAMBIO_PLAN' | 'CAMBIO_EQUIPO' | 'BAJA' | 'REACTIVACION';
 
 export interface HistorialLinea {
   id: number;
@@ -92,6 +92,54 @@ export interface HistorialLinea {
   usuario_id?: number | null;
   usuario_nombre?: string;
   fecha: string;
+}
+
+export interface HistorialMovimientoCelular {
+  id: number;
+  fecha_movimiento: string;
+  responsable?: string;
+  observaciones?: string;
+  estado?: string;
+  lugar_origen_nombre?: string;
+  lugar_destino_nombre?: string;
+}
+
+export interface HistorialAsignacionCelular {
+  id: number;
+  linea_id: number;
+  linea_numero: string;
+  tipo_evento: string;
+  fecha: string;
+  motivo?: string;
+  personal_nombre?: string;
+  usuario_nombre?: string;
+}
+
+export interface CelularHistorialDetalle {
+  id: number;
+  codigo: string;
+  nombre: string;
+  serie?: string;
+  estado_operativo: string;
+  modelo: string;
+  marca_nombre?: string;
+  lugar_nombre?: string;
+  proveedor_nombre?: string;
+  procesador?: string;
+  memoria?: string;
+  capacidad_disco?: string;
+  imei_1?: string;
+  imei_2?: string;
+  accesorios?: string;
+  fecha_adquision?: string;
+  costo_adquision?: number;
+  movimientos?: HistorialMovimientoCelular[];
+  asignaciones_lineas?: HistorialAsignacionCelular[];
+}
+
+export interface HistorialLineaResponse {
+  eventos_linea: HistorialLinea[];
+  celular?: CelularHistorialDetalle | null;
 }
 
 export interface LineasStats {
@@ -148,6 +196,18 @@ export const getNombreEstadoPlan = (estado?: EstadoPlan | string | null): string
 
 export type EstadoOperativoCelular = 'DISPONIBLE' | 'ACTIVO' | 'BAJA' | 'DESHABILITADO';
 
+export interface LineaAsignadaCelular {
+  id: number;
+  numero: string;
+  estado: string;
+  plan_nombre?: string;
+  telefonia_nombre?: string;
+  personal_id?: number;
+  personal_nombre?: string;
+  personal_cargo?: string;
+  personal_departamento?: string;
+}
+
 export interface CelularLinea {
   // Activo base
   id: number;
@@ -179,7 +239,13 @@ export interface CelularLinea {
   motivo_baja?: string;
   accesorios?: string;
 
-  // Línea enlazada (si existe y activa)
+  // Capacidad de SIMs / IMEIs
+  max_lineas?: number;
+  total_lineas_asignadas?: number;
+  disponible_para_linea?: boolean;
+  lineas_asignadas?: LineaAsignadaCelular[];
+
+  // Línea enlazada (si existe y activa, para compatibilidad)
   linea_id?: number;
   linea_numero?: string;
   linea_estado?: string;
@@ -334,6 +400,17 @@ export const lineaService = {
     return data.data;
   },
 
+  cambiarEquipo: async (id: number, payload: { activo_nuevo_id?: number | null; motivo?: string }): Promise<Linea> => {
+    const res = await fetch(`${API_URL}/${id}/cambiar-equipo`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || data.message || 'Error al cambiar equipo');
+    return data.data;
+  },
+
   darDeBaja: async (id: number, payload: { motivo_baja: string; fecha_baja?: string }): Promise<Linea> => {
     const res = await fetch(`${API_URL}/${id}/dar-baja`, {
       method: 'POST',
@@ -345,13 +422,19 @@ export const lineaService = {
     return data.data;
   },
 
-  getHistorial: async (id: number): Promise<HistorialLinea[]> => {
+  getHistorial: async (id: number): Promise<HistorialLineaResponse> => {
     const res = await fetch(`${API_URL}/${id}/historial`, {
       headers: getAuthHeaders(),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || data.message || 'Error al obtener historial');
-    return data.data || [];
+    if (data.data && data.data.eventos_linea) {
+      return data.data;
+    }
+    return {
+      eventos_linea: Array.isArray(data.data) ? data.data : [],
+      celular: null,
+    };
   },
 
   getStats: async (): Promise<LineasStats> => {
@@ -499,13 +582,14 @@ export const lineaService = {
   },
 
   // CELULARES
-  getCelulares: async (params?: { search?: string; estado_operativo?: string; marca_id?: number; lugar_id?: number; telefonia_id?: number }): Promise<CelularLinea[]> => {
+  getCelulares: async (params?: { search?: string; estado_operativo?: string; marca_id?: number; lugar_id?: number; telefonia_id?: number; disponibles_para_linea?: boolean }): Promise<CelularLinea[]> => {
     const query = new URLSearchParams();
     if (params?.search) query.append('search', params.search);
     if (params?.estado_operativo) query.append('estado_operativo', params.estado_operativo);
     if (params?.marca_id) query.append('marca_id', params.marca_id.toString());
     if (params?.lugar_id) query.append('lugar_id', params.lugar_id.toString());
     if (params?.telefonia_id) query.append('telefonia_id', params.telefonia_id.toString());
+    if (params?.disponibles_para_linea) query.append('disponibles_para_linea', 'true');
 
     const res = await fetch(`${API_URL}/celulares?${query.toString()}`, {
       headers: getAuthHeaders(),

@@ -146,6 +146,54 @@ export const crearLinea = async (req: any, res: any) => {
 
     await client.query('BEGIN');
 
+    // Validar equipo celular y capacidad de IMEIs si se asigna
+    if (activo_id) {
+      const celCheck = await client.query(
+        `SELECT a.id, a.codigo, a.nombre, cel.modelo, cel.imei_1, cel.imei_2, cel.estado_operativo 
+         FROM activo a 
+         JOIN celulares cel ON a.id = cel.activo_id 
+         WHERE a.id = $1`,
+        [activo_id]
+      );
+      if (celCheck.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ success: false, error: 'El equipo celular seleccionado no existe en el inventario' });
+      }
+      const cel = celCheck.rows[0];
+      if (cel.estado_operativo === 'BAJA' || cel.estado_operativo === 'DESHABILITADO') {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ 
+          success: false, 
+          error: `El equipo celular [${cel.codigo}] ${cel.nombre} se encuentra en estado ${cel.estado_operativo} y no puede asignarse a una línea` 
+        });
+      }
+
+      const tieneDualImei = cel.imei_2 && cel.imei_2.trim() !== '';
+      const maxLineas = tieneDualImei ? 2 : 1;
+
+      const lineasAsignadasCheck = await client.query(
+        `SELECT id, numero FROM linea WHERE activo_id = $1 AND estado != 'BAJA'`,
+        [activo_id]
+      );
+      const totalLineasAsignadas = lineasAsignadasCheck.rows.length;
+
+      if (totalLineasAsignadas >= maxLineas) {
+        await client.query('ROLLBACK');
+        const numLineasOcupadas = lineasAsignadasCheck.rows.map((l: any) => `#${l.numero}`).join(', ');
+        if (maxLineas === 1) {
+          return res.status(400).json({
+            success: false,
+            error: `El equipo celular [${cel.codigo}] ya está asignado a la línea ${numLineasOcupadas} y cuenta con 1 solo IMEI (Single SIM). No puede asignarse a más líneas.`
+          });
+        } else {
+          return res.status(400).json({
+            success: false,
+            error: `El equipo celular [${cel.codigo}] ya alcanzó su capacidad máxima de 2 líneas asignadas (${numLineasOcupadas}) para sus 2 IMEIs (Dual SIM).`
+          });
+        }
+      }
+    }
+
     // Verificar si el número ya existe
     const existsCheck = await client.query('SELECT id FROM linea WHERE numero = $1', [numero.trim()]);
     if (existsCheck.rows.length > 0) {
@@ -171,6 +219,18 @@ export const crearLinea = async (req: any, res: any) => {
     );
 
     const nuevaLinea = result.rows[0];
+
+    // Si se asignó un celular, actualizar su estado operativo
+    if (activo_id) {
+      await client.query(
+        `UPDATE celulares SET estado_operativo = 'ACTIVO' WHERE activo_id = $1 AND estado_operativo NOT IN ('BAJA', 'DESHABILITADO')`,
+        [activo_id]
+      );
+      await client.query(
+        `UPDATE activo SET estado = 'ASIGNADO' WHERE id = $1 AND estado NOT IN ('VENDIDO', 'DONADO', 'DANADO', 'TRANSFERIR')`,
+        [activo_id]
+      );
+    }
 
     // Registrar evento inicial en historial
     await client.query(
@@ -210,7 +270,7 @@ export const actualizarLinea = async (req: any, res: any) => {
   const client = await pool.connect();
   try {
     const { id } = req.params;
-    const { numero, activo_id, observaciones } = req.body;
+    const { numero, activo_id, personal_id, observaciones } = req.body;
 
     await client.query('BEGIN');
     const prevResult = await client.query('SELECT * FROM linea WHERE id = $1', [id]);
@@ -228,32 +288,144 @@ export const actualizarLinea = async (req: any, res: any) => {
     }
 
     const nuevoActivoId = activo_id !== undefined ? (activo_id ? parseInt(activo_id) : null) : prevResult.rows[0].activo_id;
+    const anteriorActivoId = prevResult.rows[0].activo_id;
+
+    const nuevoPersonalId = personal_id !== undefined ? (personal_id ? parseInt(personal_id) : null) : prevResult.rows[0].personal_id;
+    const anteriorPersonalId = prevResult.rows[0].personal_id;
+
+    // Si cambió el equipo celular asignado, validar disponibilidad por IMEI
+    if (nuevoActivoId && Number(nuevoActivoId) !== Number(anteriorActivoId)) {
+      const celCheck = await client.query(
+        `SELECT a.id, a.codigo, a.nombre, cel.modelo, cel.imei_1, cel.imei_2, cel.estado_operativo 
+         FROM activo a 
+         JOIN celulares cel ON a.id = cel.activo_id 
+         WHERE a.id = $1`,
+        [nuevoActivoId]
+      );
+      if (celCheck.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ success: false, error: 'El equipo celular seleccionado no existe en el inventario' });
+      }
+      const cel = celCheck.rows[0];
+      if (cel.estado_operativo === 'BAJA' || cel.estado_operativo === 'DESHABILITADO') {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ 
+          success: false, 
+          error: `El equipo celular [${cel.codigo}] ${cel.nombre} se encuentra en estado ${cel.estado_operativo} y no puede asignarse a una línea` 
+        });
+      }
+
+      const tieneDualImei = cel.imei_2 && cel.imei_2.trim() !== '';
+      const maxLineas = tieneDualImei ? 2 : 1;
+
+      const lineasAsignadasCheck = await client.query(
+        `SELECT id, numero FROM linea WHERE activo_id = $1 AND estado != 'BAJA' AND id != $2`,
+        [nuevoActivoId, id]
+      );
+      const totalLineasAsignadas = lineasAsignadasCheck.rows.length;
+
+      if (totalLineasAsignadas >= maxLineas) {
+        await client.query('ROLLBACK');
+        const numLineasOcupadas = lineasAsignadasCheck.rows.map((l: any) => `#${l.numero}`).join(', ');
+        if (maxLineas === 1) {
+          return res.status(400).json({
+            success: false,
+            error: `El equipo celular [${cel.codigo}] ya está asignado a la línea ${numLineasOcupadas} y cuenta con 1 solo IMEI (Single SIM). No puede asignarse a más líneas.`
+          });
+        } else {
+          return res.status(400).json({
+            success: false,
+            error: `El equipo celular [${cel.codigo}] ya alcanzó su capacidad máxima de 2 líneas asignadas (${numLineasOcupadas}) para sus 2 IMEIs (Dual SIM).`
+          });
+        }
+      }
+    }
 
     const result = await client.query(
       `UPDATE linea 
        SET numero = COALESCE($1, numero),
            activo_id = $2,
-           observaciones = $3,
+           personal_id = $3,
+           estado = CASE 
+             WHEN $3 IS NULL THEN 'DISPONIBLE'
+             WHEN estado = 'DISPONIBLE' THEN 'ACTIVA'
+             ELSE estado 
+           END,
+           fecha_asignacion = CASE 
+             WHEN $3 IS NULL THEN NULL 
+             WHEN $3 IS NOT NULL AND ($3 != COALESCE($6, 0) OR fecha_asignacion IS NULL) THEN CURRENT_DATE 
+             ELSE fecha_asignacion 
+           END,
+           observaciones = $4,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $4 RETURNING *`,
+       WHERE id = $5 RETURNING *`,
       [
         numero ? numero.trim() : prevResult.rows[0].numero,
         nuevoActivoId,
+        nuevoPersonalId,
         observaciones !== undefined ? observaciones : prevResult.rows[0].observaciones,
         id,
+        anteriorPersonalId || 0,
       ]
     );
 
-    // Si cambió el activo celular, registrar evento en historial
-    if (activo_id !== undefined && Number(nuevoActivoId) !== Number(prevResult.rows[0].activo_id)) {
+    // Si cambió el personal asignado, registrar evento de auditoría e historial
+    if (personal_id !== undefined && Number(nuevoPersonalId || 0) !== Number(anteriorPersonalId || 0)) {
+      await client.query(
+        `INSERT INTO historial_linea (linea_id, personal_anterior_id, personal_nuevo_id, plan_anterior_id, plan_nuevo_id, activo_anterior_id, activo_nuevo_id, tipo_evento, motivo, usuario_id)
+         VALUES ($1, $2, $3, $4, $4, $5, $5, 'ASIGNACION', $6, $7)`,
+        [
+          id,
+          anteriorPersonalId || null,
+          nuevoPersonalId || null,
+          prevResult.rows[0].plan_id,
+          nuevoActivoId || null,
+          nuevoPersonalId ? 'Edición / Corrección de colaborador asignado' : 'Desasignación de colaborador (línea disponible en stock)',
+          req.user?.id || req.userId || null,
+        ]
+      );
+    }
+
+    // Si cambió el activo celular, sincronizar estados y registrar evento en historial
+    if (activo_id !== undefined && Number(nuevoActivoId) !== Number(anteriorActivoId)) {
+      // 1. Activar nuevo celular si aplica
+      if (nuevoActivoId) {
+        await client.query(
+          `UPDATE celulares SET estado_operativo = 'ACTIVO' WHERE activo_id = $1 AND estado_operativo NOT IN ('BAJA', 'DESHABILITADO')`,
+          [nuevoActivoId]
+        );
+        await client.query(
+          `UPDATE activo SET estado = 'ASIGNADO' WHERE id = $1 AND estado NOT IN ('VENDIDO', 'DONADO', 'DANADO', 'TRANSFERIR')`,
+          [nuevoActivoId]
+        );
+      }
+
+      // 2. Si el celular anterior quedó sin líneas activas, regresarlo a DISPONIBLE
+      if (anteriorActivoId) {
+        const otrasLineas = await client.query(
+          `SELECT COUNT(*)::int as total FROM linea WHERE activo_id = $1 AND estado != 'BAJA' AND id != $2`,
+          [anteriorActivoId, id]
+        );
+        if (otrasLineas.rows[0].total === 0) {
+          await client.query(
+            `UPDATE celulares SET estado_operativo = 'DISPONIBLE' WHERE activo_id = $1 AND estado_operativo NOT IN ('BAJA', 'DESHABILITADO')`,
+            [anteriorActivoId]
+          );
+          await client.query(
+            `UPDATE activo SET estado = 'DISPONIBLE' WHERE id = $1 AND estado NOT IN ('VENDIDO', 'DONADO', 'DANADO', 'TRANSFERIR')`,
+            [anteriorActivoId]
+          );
+        }
+      }
+
       await client.query(
         `INSERT INTO historial_linea (linea_id, personal_anterior_id, personal_nuevo_id, plan_anterior_id, plan_nuevo_id, activo_anterior_id, activo_nuevo_id, tipo_evento, motivo, usuario_id)
          VALUES ($1, $2, $2, $3, $3, $4, $5, 'ASIGNACION', $6, $7)`,
         [
           id,
-          prevResult.rows[0].personal_id || null,
+          nuevoPersonalId || null,
           prevResult.rows[0].plan_id,
-          prevResult.rows[0].activo_id || null,
+          anteriorActivoId || null,
           nuevoActivoId,
           'Cambio de equipo celular asignado',
           req.user?.id || req.userId || null,
@@ -423,6 +595,151 @@ export const cambiarPlanLinea = async (req: any, res: any) => {
   }
 };
 
+export const cambiarEquipoLinea = async (req: any, res: any) => {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+    const { activo_nuevo_id, motivo } = req.body;
+
+    await client.query('BEGIN');
+    const lineaResult = await client.query('SELECT * FROM linea WHERE id = $1', [id]);
+    if (lineaResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'Línea no encontrada' });
+    }
+
+    const lineaActual = lineaResult.rows[0];
+    const anteriorActivoId = lineaActual.activo_id;
+    const nuevoActivoId = activo_nuevo_id !== undefined && activo_nuevo_id !== "" && activo_nuevo_id !== null ? parseInt(activo_nuevo_id) : null;
+
+    if (anteriorActivoId && nuevoActivoId && Number(anteriorActivoId) === Number(nuevoActivoId)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, error: 'La línea ya cuenta con este equipo celular asignado' });
+    }
+
+    // Validar el nuevo equipo celular si se especificó uno
+    if (nuevoActivoId) {
+      const celCheck = await client.query(
+        `SELECT a.id, a.codigo, a.nombre, cel.modelo, cel.imei_1, cel.imei_2, cel.estado_operativo 
+         FROM activo a 
+         JOIN celulares cel ON a.id = cel.activo_id 
+         WHERE a.id = $1`,
+        [nuevoActivoId]
+      );
+      if (celCheck.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ success: false, error: 'El equipo celular seleccionado no existe en el inventario' });
+      }
+      const cel = celCheck.rows[0];
+      if (cel.estado_operativo === 'BAJA' || cel.estado_operativo === 'DESHABILITADO') {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ 
+          success: false, 
+          error: `El equipo celular [${cel.codigo}] ${cel.nombre} se encuentra en estado ${cel.estado_operativo} y no puede asignarse a una línea` 
+        });
+      }
+
+      const tieneDualImei = cel.imei_2 && cel.imei_2.trim() !== '';
+      const maxLineas = tieneDualImei ? 2 : 1;
+
+      const lineasAsignadasCheck = await client.query(
+        `SELECT id, numero FROM linea WHERE activo_id = $1 AND estado != 'BAJA' AND id != $2`,
+        [nuevoActivoId, id]
+      );
+      const totalLineasAsignadas = lineasAsignadasCheck.rows.length;
+
+      if (totalLineasAsignadas >= maxLineas) {
+        await client.query('ROLLBACK');
+        const numLineasOcupadas = lineasAsignadasCheck.rows.map((l: any) => `#${l.numero}`).join(', ');
+        if (maxLineas === 1) {
+          return res.status(400).json({
+            success: false,
+            error: `El equipo celular [${cel.codigo}] ya está asignado a la línea ${numLineasOcupadas} y cuenta con 1 solo IMEI (Single SIM). No puede asignarse a más líneas.`
+          });
+        } else {
+          return res.status(400).json({
+            success: false,
+            error: `El equipo celular [${cel.codigo}] ya alcanzó su capacidad máxima de 2 líneas asignadas (${numLineasOcupadas}) para sus 2 IMEIs (Dual SIM).`
+          });
+        }
+      }
+    }
+
+    // 1. Actualizar la línea con el nuevo celular
+    const result = await client.query(
+      `UPDATE linea 
+       SET activo_id = $1,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2 RETURNING *`,
+      [nuevoActivoId, id]
+    );
+
+    // 2. Activar nuevo celular si aplica
+    if (nuevoActivoId) {
+      await client.query(
+        `UPDATE celulares SET estado_operativo = 'ACTIVO' WHERE activo_id = $1 AND estado_operativo NOT IN ('BAJA', 'DESHABILITADO')`,
+        [nuevoActivoId]
+      );
+      await client.query(
+        `UPDATE activo SET estado = 'ASIGNADO' WHERE id = $1 AND estado NOT IN ('VENDIDO', 'DONADO', 'DANADO', 'TRANSFERIR')`,
+        [nuevoActivoId]
+      );
+    }
+
+    // 3. Si el celular anterior quedó sin líneas activas, regresarlo a DISPONIBLE
+    if (anteriorActivoId) {
+      const otrasLineas = await client.query(
+        `SELECT COUNT(*)::int as total FROM linea WHERE activo_id = $1 AND estado != 'BAJA' AND id != $2`,
+        [anteriorActivoId, id]
+      );
+      if (otrasLineas.rows[0].total === 0) {
+        await client.query(
+          `UPDATE celulares SET estado_operativo = 'DISPONIBLE' WHERE activo_id = $1 AND estado_operativo NOT IN ('BAJA', 'DESHABILITADO')`,
+          [anteriorActivoId]
+        );
+        await client.query(
+          `UPDATE activo SET estado = 'DISPONIBLE' WHERE id = $1 AND estado NOT IN ('VENDIDO', 'DONADO', 'DANADO', 'TRANSFERIR')`,
+          [anteriorActivoId]
+        );
+      }
+    }
+
+    // 4. Registrar en historial_linea con tipo_evento = 'CAMBIO_EQUIPO'
+    await client.query(
+      `INSERT INTO historial_linea (linea_id, personal_anterior_id, personal_nuevo_id, plan_anterior_id, plan_nuevo_id, activo_anterior_id, activo_nuevo_id, tipo_evento, motivo, usuario_id)
+       VALUES ($1, $2, $2, $3, $3, $4, $5, 'CAMBIO_EQUIPO', $6, $7)`,
+      [
+        id,
+        lineaActual.personal_id || null,
+        lineaActual.plan_id,
+        anteriorActivoId || null,
+        nuevoActivoId,
+        motivo ? motivo.trim() : 'Reemplazo o cambio de equipo celular',
+        req.user?.id || req.userId || null,
+      ]
+    );
+
+    await registrarAuditoria(client, {
+      tabla_afectada: 'linea',
+      registro_id: parseInt(id),
+      accion: 'CAMBIO_EQUIPO',
+      datos_anteriores: lineaActual,
+      datos_nuevos: result.rows[0],
+      usuario_id: req.user?.id || req.userId || null,
+      ip_usuario: req.ip || null,
+    });
+
+    await client.query('COMMIT');
+    res.json({ success: true, data: result.rows[0], message: 'Equipo celular actualizado exitosamente' });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    console.error('Error al cambiar equipo de la línea:', error);
+    res.status(500).json({ success: false, error: error.message || 'Error al cambiar equipo celular' });
+  } finally {
+    client.release();
+  }
+};
+
 export const darDeBajaLinea = async (req: any, res: any) => {
   const client = await pool.connect();
   try {
@@ -453,14 +770,33 @@ export const darDeBajaLinea = async (req: any, res: any) => {
       [fechaBajaFinal, motivo_baja.trim(), id]
     );
 
+    // Si la línea tenía un celular asignado, revisar si queda libre
+    if (lineaActual.activo_id) {
+      const otrasLineas = await client.query(
+        `SELECT COUNT(*)::int as total FROM linea WHERE activo_id = $1 AND estado != 'BAJA' AND id != $2`,
+        [lineaActual.activo_id, id]
+      );
+      if (otrasLineas.rows[0].total === 0) {
+        await client.query(
+          `UPDATE celulares SET estado_operativo = 'DISPONIBLE' WHERE activo_id = $1 AND estado_operativo NOT IN ('BAJA', 'DESHABILITADO')`,
+          [lineaActual.activo_id]
+        );
+        await client.query(
+          `UPDATE activo SET estado = 'DISPONIBLE' WHERE id = $1 AND estado NOT IN ('VENDIDO', 'DONADO', 'DANADO', 'TRANSFERIR')`,
+          [lineaActual.activo_id]
+        );
+      }
+    }
+
     // Registrar en historial_linea
     await client.query(
-      `INSERT INTO historial_linea (linea_id, personal_anterior_id, plan_anterior_id, tipo_evento, motivo, usuario_id)
-       VALUES ($1, $2, $3, 'BAJA', $4, $5)`,
+      `INSERT INTO historial_linea (linea_id, personal_anterior_id, plan_anterior_id, activo_anterior_id, tipo_evento, motivo, usuario_id)
+       VALUES ($1, $2, $3, $4, 'BAJA', $5, $6)`,
       [
         id,
         lineaActual.personal_id || null,
         lineaActual.plan_id,
+        lineaActual.activo_id || null,
         motivo_baja.trim(),
         req.user?.id || req.userId || null,
       ]
@@ -518,7 +854,12 @@ export const obtenerHistorialLinea = async (req: any, res: any) => {
       [id]
     );
 
-    res.json({ success: true, data: result.rows });
+    res.json({
+      success: true,
+      data: {
+        eventos_linea: result.rows,
+      },
+    });
   } catch (error) {
     console.error('Error al obtener historial de línea:', error);
     res.status(500).json({ success: false, error: 'Error al obtener historial de línea' });
@@ -584,7 +925,7 @@ export const eliminarLinea = async (req: any, res: any) => {
 
 export const obtenerCelularesLineas = async (req: any, res: any) => {
   try {
-    const { search, estado_operativo, marca_id, lugar_id, telefonia_id } = req.query;
+    const { search, estado_operativo, marca_id, lugar_id, telefonia_id, disponibles_para_linea } = req.query;
 
     let query = `
       SELECT 
@@ -614,16 +955,38 @@ export const obtenerCelularesLineas = async (req: any, res: any) => {
         cel.fecha_baja,
         cel.motivo_baja,
         cel.accesorios,
-        lin.id as linea_id,
-        lin.numero as linea_numero,
-        lin.estado as linea_estado,
-        pt.nombre as plan_nombre,
-        pt.costo as plan_costo,
-        t.nombre as telefonia_nombre,
-        p.id as personal_id,
-        p.nombre as personal_nombre,
-        p.cargo as personal_cargo,
-        p.departamento as personal_departamento
+        (CASE WHEN cel.imei_2 IS NOT NULL AND TRIM(cel.imei_2) != '' THEN 2 ELSE 1 END)::int as max_lineas,
+        COUNT(lin.id)::int as total_lineas_asignadas,
+        (
+          COUNT(lin.id) < (CASE WHEN cel.imei_2 IS NOT NULL AND TRIM(cel.imei_2) != '' THEN 2 ELSE 1 END)
+          AND COALESCE(cel.estado_operativo, 'DISPONIBLE') NOT IN ('BAJA', 'DESHABILITADO')
+        ) as disponible_para_linea,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', lin.id,
+              'numero', lin.numero,
+              'estado', lin.estado,
+              'plan_nombre', pt.nombre,
+              'telefonia_nombre', t.nombre,
+              'personal_id', p.id,
+              'personal_nombre', p.nombre,
+              'personal_cargo', p.cargo,
+              'personal_departamento', p.departamento
+            )
+          ) FILTER (WHERE lin.id IS NOT NULL),
+          '[]'::json
+        ) as lineas_asignadas,
+        (ARRAY_AGG(lin.id) FILTER (WHERE lin.id IS NOT NULL))[1] as linea_id,
+        (ARRAY_AGG(lin.numero) FILTER (WHERE lin.id IS NOT NULL))[1] as linea_numero,
+        (ARRAY_AGG(lin.estado) FILTER (WHERE lin.id IS NOT NULL))[1] as linea_estado,
+        (ARRAY_AGG(pt.nombre) FILTER (WHERE lin.id IS NOT NULL))[1] as plan_nombre,
+        (ARRAY_AGG(pt.costo) FILTER (WHERE lin.id IS NOT NULL))[1] as plan_costo,
+        (ARRAY_AGG(t.nombre) FILTER (WHERE lin.id IS NOT NULL))[1] as telefonia_nombre,
+        (ARRAY_AGG(p.id) FILTER (WHERE lin.id IS NOT NULL))[1] as personal_id,
+        (ARRAY_AGG(p.nombre) FILTER (WHERE lin.id IS NOT NULL))[1] as personal_nombre,
+        (ARRAY_AGG(p.cargo) FILTER (WHERE lin.id IS NOT NULL))[1] as personal_cargo,
+        (ARRAY_AGG(p.departamento) FILTER (WHERE lin.id IS NOT NULL))[1] as personal_departamento
       FROM activo a
       JOIN celulares cel ON a.id = cel.activo_id
       LEFT JOIN lugar l ON a.lugar_id = l.id
@@ -647,8 +1010,6 @@ export const obtenerCelularesLineas = async (req: any, res: any) => {
         a.serie ILIKE $${paramCount} OR 
         cel.imei_1 ILIKE $${paramCount} OR 
         cel.imei_2 ILIKE $${paramCount} OR 
-        p.nombre ILIKE $${paramCount} OR 
-        lin.numero ILIKE $${paramCount} OR 
         l.nombre ILIKE $${paramCount} OR 
         m.nombre ILIKE $${paramCount}
       )`;
@@ -678,6 +1039,12 @@ export const obtenerCelularesLineas = async (req: any, res: any) => {
       query += ` AND t.id = $${paramCount}`;
       params.push(telefonia_id);
       paramCount++;
+    }
+
+    query += ` GROUP BY a.id, cel.activo_id, l.id, m.id, prov.id`;
+
+    if (disponibles_para_linea === 'true') {
+      query += ` HAVING COUNT(lin.id) < (CASE WHEN cel.imei_2 IS NOT NULL AND TRIM(cel.imei_2) != '' THEN 2 ELSE 1 END) AND COALESCE(cel.estado_operativo, 'DISPONIBLE') NOT IN ('BAJA', 'DESHABILITADO')`;
     }
 
     query += ` ORDER BY a.codigo ASC`;
@@ -722,16 +1089,38 @@ export const obtenerCelularPorId = async (req: any, res: any) => {
         cel.fecha_baja,
         cel.motivo_baja,
         cel.accesorios,
-        lin.id as linea_id,
-        lin.numero as linea_numero,
-        lin.estado as linea_estado,
-        pt.nombre as plan_nombre,
-        pt.costo as plan_costo,
-        t.nombre as telefonia_nombre,
-        p.id as personal_id,
-        p.nombre as personal_nombre,
-        p.cargo as personal_cargo,
-        p.departamento as personal_departamento
+        (CASE WHEN cel.imei_2 IS NOT NULL AND TRIM(cel.imei_2) != '' THEN 2 ELSE 1 END)::int as max_lineas,
+        COUNT(lin.id)::int as total_lineas_asignadas,
+        (
+          COUNT(lin.id) < (CASE WHEN cel.imei_2 IS NOT NULL AND TRIM(cel.imei_2) != '' THEN 2 ELSE 1 END)
+          AND COALESCE(cel.estado_operativo, 'DISPONIBLE') NOT IN ('BAJA', 'DESHABILITADO')
+        ) as disponible_para_linea,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', lin.id,
+              'numero', lin.numero,
+              'estado', lin.estado,
+              'plan_nombre', pt.nombre,
+              'telefonia_nombre', t.nombre,
+              'personal_id', p.id,
+              'personal_nombre', p.nombre,
+              'personal_cargo', p.cargo,
+              'personal_departamento', p.departamento
+            )
+          ) FILTER (WHERE lin.id IS NOT NULL),
+          '[]'::json
+        ) as lineas_asignadas,
+        (ARRAY_AGG(lin.id) FILTER (WHERE lin.id IS NOT NULL))[1] as linea_id,
+        (ARRAY_AGG(lin.numero) FILTER (WHERE lin.id IS NOT NULL))[1] as linea_numero,
+        (ARRAY_AGG(lin.estado) FILTER (WHERE lin.id IS NOT NULL))[1] as linea_estado,
+        (ARRAY_AGG(pt.nombre) FILTER (WHERE lin.id IS NOT NULL))[1] as plan_nombre,
+        (ARRAY_AGG(pt.costo) FILTER (WHERE lin.id IS NOT NULL))[1] as plan_costo,
+        (ARRAY_AGG(t.nombre) FILTER (WHERE lin.id IS NOT NULL))[1] as telefonia_nombre,
+        (ARRAY_AGG(p.id) FILTER (WHERE lin.id IS NOT NULL))[1] as personal_id,
+        (ARRAY_AGG(p.nombre) FILTER (WHERE lin.id IS NOT NULL))[1] as personal_nombre,
+        (ARRAY_AGG(p.cargo) FILTER (WHERE lin.id IS NOT NULL))[1] as personal_cargo,
+        (ARRAY_AGG(p.departamento) FILTER (WHERE lin.id IS NOT NULL))[1] as personal_departamento
       FROM activo a
       JOIN celulares cel ON a.id = cel.activo_id
       LEFT JOIN lugar l ON a.lugar_id = l.id
@@ -742,6 +1131,7 @@ export const obtenerCelularPorId = async (req: any, res: any) => {
       LEFT JOIN telefonia t ON pt.telefonia_id = t.id
       LEFT JOIN personal p ON lin.personal_id = p.id
       WHERE a.tipo_activo = 'CELULAR' AND a.id = $1
+      GROUP BY a.id, cel.activo_id, l.id, m.id, prov.id
     `;
 
     const result = await pool.query(query, [id]);

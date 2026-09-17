@@ -13,11 +13,8 @@ import {
   TipoConstancia, 
   getNombreTipoActivo, 
   getNombreEstadoActivo, 
-  getNombreTipoConstancia, 
   getNombreClasificacion,
   getColorClasificacion,
-  esActivoSimple, 
-  requiereMarcaProveedor 
 } from "@/services/activo.service";
 import { lugarService, Lugar } from "@/services/lugar.service";
 import { marcaService, Marca } from "@/services/marca.service";
@@ -26,6 +23,8 @@ import { uploadService } from "@/services/upload.service";
 import InfoModal from "@/components/ui/InfoModal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import { useToast } from "@/contexts/ToastContext";
+import { ModalDetalleActivo } from "@/components/modals/activos/ModalDetalleActivo";
+import { ModalEditarActivo, EditActivoFormData } from "@/components/modals/activos/ModalEditarActivo";
 
 const ListaActivosPage = () => {
   const { showLoading, hideLoading } = useLoading();
@@ -49,8 +48,8 @@ const ListaActivosPage = () => {
   const [editLugares, setEditLugares] = useState<Lugar[]>([]);
   const [editMarcas, setEditMarcas] = useState<Marca[]>([]);
   const [editProveedores, setEditProveedores] = useState<Proveedor[]>([]);
-  const [editFormData, setEditFormData] = useState({
-    nombre: '', clasificacion: 'FIJO' as ClasificacionActivo, imagen: '', estado: 'DISPONIBLE', descripcion: '',
+  const [editFormData, setEditFormData] = useState<EditActivoFormData>({
+    nombre: '', clasificacion: 'FIJO', imagen: '', estado: 'DISPONIBLE', descripcion: '',
     fecha_adquision: '', costo_adquision: '', tipo_constancia: '',
     nro_constancia: '', lugar_id: '', marca_id: '', proveedor_id: '',
   });
@@ -107,12 +106,12 @@ const ListaActivosPage = () => {
   const verDetalle = async (activo: Activo) => {
     setActivoSeleccionado(activo);
     setModalAbierto(true);
-    // Cargar datos completos (imagen + datos_especificos)
+    setModoEditar(false);
     try {
       const completo = await activoService.getById(activo.id);
       setActivoSeleccionado(completo);
     } catch {
-      // si falla, queda con los datos parciales de la lista
+      // si falla, queda con los datos parciales
     }
   };
 
@@ -177,11 +176,6 @@ const ListaActivosPage = () => {
     }
   };
 
-  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setEditFormData(prev => ({ ...prev, [name]: value }));
-  };
-
   const handleEditImagenChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -192,7 +186,6 @@ const ListaActivosPage = () => {
     reader.readAsDataURL(file);
     setEditSubiendoImagen(true);
     try {
-      // Compresión en el cliente
       const { compressImage } = await import('@/lib/image');
       const base64 = await compressImage(file);
       const result = await uploadService.uploadImage(base64, 'activos-greenfield/activos');
@@ -254,35 +247,6 @@ const ListaActivosPage = () => {
     }
   };
 
-  const etiquetasDatosEspecificos: Record<string, string> = {
-    modelo: 'Modelo',
-    procesador: 'Procesador',
-    memoria: 'Memoria RAM',
-    capacidad_disco: 'Capacidad / Almacenamiento',
-    imei_1: 'IMEI 1',
-    imei_2: 'IMEI 2',
-    tipo_vehiculo: 'Tipo de Vehículo',
-    motor: 'Motor',
-    chasis: 'Chasis',
-    color: 'Color',
-    anho_modelo: 'Año / Modelo',
-    folio: 'Folio',
-    nro_registro: 'Nro. Registro',
-    area: 'Área (m²)',
-    ubicacion: 'Ubicación',
-  };
-
-  const activosFiltrados = (activos || []).filter((activo) => {
-    const cumpleBusqueda = 
-      activo.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
-      activo.codigo?.toLowerCase().includes(busqueda.toLowerCase());
-    
-    const cumpleTipo = !filtroTipo || activo.tipo_activo === filtroTipo;
-    const cumpleClasificacion = !filtroClasificacion || activo.clasificacion === filtroClasificacion;
-    
-    return cumpleBusqueda && cumpleTipo && cumpleClasificacion;
-  });
-
   const tiposActivos: TipoActivo[] = [
     'EDIFICACION',
     'ELECTRODOMESTICO',
@@ -298,105 +262,89 @@ const ListaActivosPage = () => {
     'TERRENO',
   ];
 
+  const activosFiltrados = (activos || []).filter((activo) => {
+    const cumpleBusqueda =
+      activo.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+      activo.codigo.toLowerCase().includes(busqueda.toLowerCase());
+    const cumpleTipo = filtroTipo === "" || activo.tipo_activo === filtroTipo;
+    const cumpleClasificacion = filtroClasificacion === "" || activo.clasificacion === filtroClasificacion;
+    return cumpleBusqueda && cumpleTipo && cumpleClasificacion;
+  });
+
   return (
     <>
-      <Breadcrumb
-        pageName="Lista de Activos"
-        description="Gestiona todos los tipos de activos del sistema"
-      />
+      <Breadcrumb pageName="Lista de Activos" description="Gestiona el inventario de activos de la empresa" />
 
-      <section className="pb-16 pt-6">
-        <div className="container">
-          <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
-            <h2 className="text-xl font-bold text-black dark:text-white">
-              Activos Registrados ({activosFiltrados.length})
-            </h2>
+      <section className="pb-12 text-xs">
+        <div className="container mx-auto">
+          {error && (
+            <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-red-600 dark:text-red-400">
+              {error}
+            </div>
+          )}
+
+          {/* Selector de Vistas / Pestañas */}
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => cambiarVista('servicio')}
+                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all shadow-sm ${
+                  vista === 'servicio'
+                    ? 'bg-primary text-white shadow-primary/25'
+                    : 'border border-black/5 dark:border-white/5 bg-white/60 dark:bg-black/40 backdrop-blur-md text-body-color dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                En Servicio
+              </button>
+              <button
+                onClick={() => cambiarVista('bajas')}
+                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all shadow-sm ${
+                  vista === 'bajas'
+                    ? 'bg-primary text-white shadow-primary/25'
+                    : 'border border-black/5 dark:border-white/5 bg-white/60 dark:bg-black/40 backdrop-blur-md text-body-color dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                <span className="h-2 w-2 rounded-full bg-rose-500" />
+                De Baja
+              </button>
+              <button
+                onClick={() => cambiarVista('transferidos')}
+                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all shadow-sm ${
+                  vista === 'transferidos'
+                    ? 'bg-primary text-white shadow-primary/25'
+                    : 'border border-black/5 dark:border-white/5 bg-white/60 dark:bg-black/40 backdrop-blur-md text-body-color dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                <span className="h-2 w-2 rounded-full bg-yellow-500" />
+                Transferidos
+              </button>
+              <button
+                onClick={() => cambiarVista('todos')}
+                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all shadow-sm ${
+                  vista === 'todos'
+                    ? 'bg-primary text-white shadow-primary/25'
+                    : 'border border-black/5 dark:border-white/5 bg-white/60 dark:bg-black/40 backdrop-blur-md text-body-color dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                Todos
+              </button>
+            </div>
+
             <Link
               href="/admin/activos/registrar"
-              className="rounded-xl bg-primary hover:bg-primary/90 px-5 py-2.5 text-xs font-bold text-white transition-all shadow-md shadow-primary/10 flex items-center gap-2"
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-xs font-bold text-white shadow-md shadow-primary/20 hover:bg-primary/90 transition-all cursor-pointer"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Registrar Activo
+              Nuevo Activo
             </Link>
           </div>
 
-          {/* Tabs de Vista */}
-          <div className="mb-6 flex flex-wrap gap-2">
-            <button
-              onClick={() => cambiarVista('servicio')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                vista === 'servicio'
-                  ? 'bg-primary text-white shadow-md shadow-primary/10'
-                  : 'bg-white/60 dark:bg-black/40 border border-black/5 dark:border-white/5 text-body-color dark:text-gray-300 hover:bg-white dark:hover:bg-black'
-              }`}
-            >
-              En Servicio
-            </button>
-            <button
-              onClick={() => cambiarVista('transferidos')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                vista === 'transferidos'
-                  ? 'bg-yellow-500 text-white shadow-md shadow-yellow-500/10'
-                  : 'bg-white/60 dark:bg-black/40 border border-black/5 dark:border-white/5 text-body-color dark:text-gray-300 hover:bg-white dark:hover:bg-black'
-              }`}
-            >
-              Transferidos
-            </button>
-            <button
-              onClick={() => cambiarVista('bajas')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                vista === 'bajas'
-                  ? 'bg-red-600 text-white shadow-md shadow-red-600/10'
-                  : 'bg-white/60 dark:bg-black/40 border border-black/5 dark:border-white/5 text-body-color dark:text-gray-300 hover:bg-white dark:hover:bg-black'
-              }`}
-            >
-              Dados de Baja
-            </button>
-            <button
-              onClick={() => cambiarVista('todos')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                vista === 'todos'
-                  ? 'bg-gray-700 text-white shadow-md'
-                  : 'bg-white/60 dark:bg-black/40 border border-black/5 dark:border-white/5 text-body-color dark:text-gray-300 hover:bg-white dark:hover:bg-black'
-              }`}
-            >
-              Todos
-            </button>
-          </div>
-
-          {vista === 'transferidos' && (
-            <div className="mb-6 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 px-4 py-3 flex items-start gap-3">
-              <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-              </svg>
-              <div>
-                <p className="text-xs font-bold text-yellow-800 dark:text-yellow-300">Activos Transferidos</p>
-                <p className="text-[10px] text-yellow-700 dark:text-yellow-400 mt-0.5">
-                  Estos activos fueron transferidos a otro lugar y se crearon con un nuevo código en el destino. El código original queda aquí como registro histórico. Solo lectura.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {vista === 'bajas' && (
-            <div className="mb-6 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3">
-              <p className="text-xs font-semibold text-red-800 dark:text-red-400">
-                <strong>Activos dados de baja:</strong> Vendidos, donados o reportados como dañados. Solo consulta.
-              </p>
-            </div>
-          )}
-
-          {error && (
-            <div className="mb-6 rounded-xl bg-red-100 dark:bg-red-900/30 px-4 py-3">
-              <p className="text-xs font-semibold text-red-800 dark:text-red-400">{error}</p>
-            </div>
-          )}
-
           {/* Filtros */}
-          <div className="mb-6 rounded-2xl border border-black/5 dark:border-white/5 bg-white/60 dark:bg-black/40 backdrop-blur-md p-6 shadow-sm">
-            <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-body-color/70">
+          <div className="mb-6 rounded-2xl border border-black/5 dark:border-white/5 bg-white/60 dark:bg-black/40 backdrop-blur-md p-5 shadow-sm">
+            <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-body-color dark:text-gray-400">
               Filtros
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -409,7 +357,7 @@ const ListaActivosPage = () => {
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
                   placeholder="Buscar activo..."
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
                 />
               </div>
               <div>
@@ -419,7 +367,7 @@ const ListaActivosPage = () => {
                 <select
                   value={filtroTipo}
                   onChange={(e) => setFiltroTipo(e.target.value as TipoActivo | "")}
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
                 >
                   <option value="">Todos los tipos</option>
                   {tiposActivos.map((tipo) => (
@@ -436,7 +384,7 @@ const ListaActivosPage = () => {
                 <select
                   value={filtroClasificacion}
                   onChange={(e) => setFiltroClasificacion(e.target.value as ClasificacionActivo | "")}
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
                 >
                   <option value="">Todas las clasificaciones</option>
                   <option value="FIJO">Activo Fijo</option>
@@ -498,7 +446,7 @@ const ListaActivosPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5 dark:divide-white/5">
-                  {activosFiltrados.map((activo, index) => (
+                  {activosFiltrados.map((activo) => (
                     <tr
                       key={activo.id}
                       className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
@@ -533,7 +481,7 @@ const ListaActivosPage = () => {
                         <div className="flex items-center justify-center gap-3">
                           <button
                             onClick={() => verDetalle(activo)}
-                            className="group relative inline-flex items-center justify-center w-8 h-8 rounded-xl bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-all text-white shadow-sm hover:shadow-md"
+                            className="group relative inline-flex items-center justify-center w-8 h-8 rounded-xl bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-all text-white shadow-sm hover:shadow-md cursor-pointer"
                             title="Ver Detalle"
                           >
                             <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -544,7 +492,7 @@ const ListaActivosPage = () => {
                           {!['TRANSFERIR','VENDIDO','DONADO','DANADO'].includes(activo.estado || '') && (
                             <Link
                               href={`/admin/activos/editar/${activo.id}`}
-                              className="group relative inline-flex items-center justify-center w-8 h-8 rounded-xl bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700 transition-all text-white shadow-sm hover:shadow-md"
+                              className="group relative inline-flex items-center justify-center w-8 h-8 rounded-xl bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700 transition-all text-white shadow-sm hover:shadow-md cursor-pointer"
                               title="Editar"
                             >
                               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -554,7 +502,7 @@ const ListaActivosPage = () => {
                           )}
                           <button
                             onClick={intentarEliminar}
-                            className="group relative inline-flex items-center justify-center w-8 h-8 rounded-xl bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 transition-all text-white shadow-sm hover:shadow-md"
+                            className="group relative inline-flex items-center justify-center w-8 h-8 rounded-xl bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 transition-all text-white shadow-sm hover:shadow-md cursor-pointer"
                             title="Eliminar"
                           >
                             <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -585,7 +533,7 @@ const ListaActivosPage = () => {
           onClick={() => setImagenFullscreen(false)}
         >
           <button
-            className="absolute top-4 right-4 text-white bg-black/50 hover:bg-black/80 rounded-full p-2 transition-all"
+            className="absolute top-4 right-4 text-white bg-black/50 hover:bg-black/80 rounded-full p-2 transition-all cursor-pointer"
             onClick={() => setImagenFullscreen(false)}
           >
             <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -603,444 +551,42 @@ const ListaActivosPage = () => {
       )}
 
       {/* Modal de Detalle */}
-      {modalAbierto && activoSeleccionado && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 px-4">
-          <div className="relative w-full max-w-2xl rounded-lg bg-white dark:bg-gray-dark shadow-xl max-h-[90vh] overflow-y-auto">
+      {!modoEditar && (
+        <ModalDetalleActivo
+          isOpen={modalAbierto}
+          onClose={cerrarModal}
+          activo={activoSeleccionado}
+          onEditar={iniciarEdicion}
+          onVerImagenFullscreen={() => setImagenFullscreen(true)}
+        />
+      )}
 
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-6 py-4 sticky top-0 bg-white dark:bg-gray-dark z-10">
-              <div className="flex items-center gap-3">
-                {modoEditar && (
-                  <button
-                    onClick={() => setConfirmCancelarEdit(true)}
-                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                    title="Volver al detalle"
-                  >
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                )}
-                <h3 className="text-xl font-bold text-black dark:text-white">
-                  {modoEditar ? 'Editar Activo' : 'Detalle del Activo'}
-                </h3>
-              </div>
-              <button
-                onClick={modoEditar ? () => setConfirmCancelarEdit(true) : cerrarModal}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Loading edit */}
-            {cargandoEdit && (
-              <div className="flex items-center justify-center py-16">
-                <svg className="w-10 h-10 text-primary animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-              </div>
-            )}
-
-            {/* EDIT FORM */}
-            {modoEditar && !cargandoEdit && (
-              <form onSubmit={handleEditSubmit}>
-                <div className="px-6 py-5 space-y-4">
-
-                  {/* Sección Lugar y Estado - destacada */}
-                  <div className="rounded-lg border-2 border-primary/30 bg-primary/5 dark:bg-primary/10 p-4">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-primary mb-3">Ubicación y Estado</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="mb-2 block text-xs font-semibold text-gray-600 dark:text-gray-400">Lugar <span className="text-red-500">*</span></label>
-                        <select name="lugar_id" value={editFormData.lugar_id} onChange={handleEditChange} required
-                          className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary">
-                          <option value="">-- Seleccione --</option>
-                          {editLugares.map(l => <option key={l.id} value={l.id}>{l.nombre} ({l.inicial})</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="mb-2 block text-xs font-semibold text-gray-600 dark:text-gray-400">Estado</label>
-                        <select name="estado" value={editFormData.estado} onChange={handleEditChange}
-                          className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary">
-                          <option value="NUEVO">Nuevo</option>
-                          <option value="USADO">Usado</option>
-                          <option value="DISPONIBLE">Disponible</option>
-                          <option value="DANADO">Dañado</option>
-                          <option value="DONADO">Donado</option>
-                          <option value="VENDIDO">Vendido</option>
-                          <option value="TRANSFERIR">Por Transferir</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Sección Información Básica */}
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 p-4">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Información Básica</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                      <div>
-                        <label className="mb-2 block text-xs font-semibold text-gray-600 dark:text-gray-400">Nombre <span className="text-red-500">*</span></label>
-                        <input type="text" name="nombre" value={editFormData.nombre} onChange={handleEditChange} required placeholder="Nombre del activo"
-                          className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary" />
-                      </div>
-                      <div>
-                        <label className="mb-2 block text-xs font-semibold text-gray-600 dark:text-gray-400">Clasificación <span className="text-red-500">*</span></label>
-                        <select name="clasificacion" value={editFormData.clasificacion} onChange={handleEditChange}
-                          className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary">
-                          <option value="FIJO">Activo Fijo</option>
-                          <option value="MENOR">Activo Menor</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="mb-2 block text-xs font-semibold text-gray-600 dark:text-gray-400">Descripción</label>
-                      <textarea name="descripcion" rows={2} value={editFormData.descripcion} onChange={handleEditChange} placeholder="Descripción..."
-                        className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary" />
-                    </div>
-                  </div>
-
-                  {/* Sección Adquisición */}
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 p-4">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Adquisición</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="mb-2 block text-xs font-semibold text-gray-600 dark:text-gray-400">Fecha de Adquisición</label>
-                        <input type="date" name="fecha_adquision" value={editFormData.fecha_adquision} onChange={handleEditChange}
-                          className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary" />
-                      </div>
-                      <div>
-                        <label className="mb-2 block text-xs font-semibold text-gray-600 dark:text-gray-400">Costo (Bs.)</label>
-                        <input type="number" step="0.01" name="costo_adquision" value={editFormData.costo_adquision} onChange={handleEditChange} placeholder="0.00"
-                          className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary" />
-                      </div>
-                      {activoSeleccionado && requiereMarcaProveedor(activoSeleccionado.tipo_activo) && (
-                        <>
-                          <div>
-                            <label className="mb-2 block text-xs font-semibold text-gray-600 dark:text-gray-400">Marca</label>
-                            <select name="marca_id" value={editFormData.marca_id} onChange={handleEditChange}
-                              className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary">
-                              <option value="">-- Sin marca --</option>
-                              {editMarcas.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="mb-2 block text-xs font-semibold text-gray-600 dark:text-gray-400">Proveedor</label>
-                            <select name="proveedor_id" value={editFormData.proveedor_id} onChange={handleEditChange}
-                              className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary">
-                              <option value="">-- Sin proveedor --</option>
-                              {editProveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                            </select>
-                          </div>
-                        </>
-                      )}
-                      <div>
-                        <label className="mb-2 block text-xs font-semibold text-gray-600 dark:text-gray-400">Tipo de Constancia</label>
-                        <select name="tipo_constancia" value={editFormData.tipo_constancia} onChange={handleEditChange}
-                          className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary">
-                          <option value="">Seleccionar...</option>
-                          <option value="FACTURA">Factura</option>
-                          <option value="PROFORMA">Proforma</option>
-                          <option value="RECIBO">Recibo</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="mb-2 block text-xs font-semibold text-gray-600 dark:text-gray-400">Nro. Constancia</label>
-                        <input type="text" name="nro_constancia" value={editFormData.nro_constancia} onChange={handleEditChange} placeholder="Ej: 001-001234"
-                          className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Sección Imagen */}
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 p-4">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Imagen</h4>
-                    {!editImagenPreview ? (
-                      <label htmlFor="edit-imagen-upload" className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-600">
-                        <div className="flex flex-col items-center justify-center py-4">
-                          {editSubiendoImagen ? (
-                            <svg className="w-8 h-8 text-primary animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>
-                          ) : (
-                            <><svg className="w-8 h-8 mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg><p className="text-xs text-gray-500">Click para subir imagen (PNG, JPG, max 5MB)</p></>
-                          )}
-                        </div>
-                        <input id="edit-imagen-upload" type="file" accept="image/*" onChange={handleEditImagenChange} disabled={editSubiendoImagen} className="hidden" />
-                      </label>
-                    ) : (
-                      <div className="relative">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={editImagenPreview} alt="preview" className="w-full h-40 object-contain rounded-lg border dark:border-gray-600" />
-                        <button type="button" onClick={() => { setEditImagenPreview(''); setEditFormData(p => ({ ...p, imagen: '' })); }}
-                          className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-lg">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Datos Específicos */}
-                  {activoSeleccionado && !esActivoSimple(activoSeleccionado.tipo_activo) && (
-                    <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-4">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-3">Datos Técnicos - {getNombreTipoActivo(activoSeleccionado.tipo_activo)}</h4>
-                      {activoSeleccionado.tipo_activo === 'EQUIPO_TECNOLOGICO' && (
-                        <div className="grid grid-cols-2 gap-3">
-                          {(['modelo', 'procesador', 'memoria', 'capacidad_disco'] as const).map(k => (
-                            <div key={k}>
-                              <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400 capitalize">{k.replace('_', ' ')}</label>
-                              <input type="text" value={editCamposEquipoTec[k]} onChange={e => setEditCamposEquipoTec(p => ({ ...p, [k]: e.target.value }))}
-                                className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary" />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {activoSeleccionado.tipo_activo === 'CELULAR' && (
-                        <div className="grid grid-cols-2 gap-3">
-                          {(['modelo', 'procesador', 'memoria', 'capacidad_disco', 'imei_1', 'imei_2'] as const).map(k => (
-                            <div key={k}>
-                              <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400 capitalize">
-                                {k === 'imei_1' ? 'IMEI 1 (Opcional)' : k === 'imei_2' ? 'IMEI 2 (Opcional)' : k === 'capacidad_disco' ? 'Almacenamiento' : k.replace('_', ' ')}
-                              </label>
-                              <input type="text" value={editCamposCelular[k]} onChange={e => setEditCamposCelular(p => ({ ...p, [k]: e.target.value }))}
-                                className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary" />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {(activoSeleccionado.tipo_activo === 'VEHICULO' || activoSeleccionado.tipo_activo === 'MAQUINARIA') && (
-                        <div className="grid grid-cols-2 gap-3">
-                          {(['tipo_vehiculo', 'motor', 'chasis', 'color', 'anho_modelo', 'placa'] as const).map(k => (
-                            <div key={k}>
-                              <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400 capitalize">{k.replace(/_/g, ' ')}</label>
-                              <input type={k === 'anho_modelo' ? 'number' : 'text'} value={editCamposMotorizado[k]} onChange={e => setEditCamposMotorizado(p => ({ ...p, [k]: e.target.value }))}
-                                className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary" />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {activoSeleccionado.tipo_activo === 'TERRENO' && (
-                        <div className="grid grid-cols-2 gap-3">
-                          {(['folio', 'nro_registro', 'area'] as const).map(k => (
-                            <div key={k}>
-                              <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400 capitalize">{k.replace('_', ' ')}</label>
-                              <input type={k === 'area' ? 'number' : 'text'} value={editCamposTerreno[k]} onChange={e => setEditCamposTerreno(p => ({ ...p, [k]: e.target.value }))}
-                                className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary" />
-                            </div>
-                          ))}
-                          <div className="col-span-2">
-                            <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400">Ubicación</label>
-                            <textarea rows={2} value={editCamposTerreno.ubicacion} onChange={e => setEditCamposTerreno(p => ({ ...p, ubicacion: e.target.value }))}
-                              className="border-stroke dark:text-white w-full rounded-sm border bg-white px-3 py-2 text-sm text-body-color outline-none focus:border-primary dark:border-gray-600 dark:bg-[#2C303B] dark:focus:border-primary" />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                </div>
-
-                {/* Footer edit */}
-                <div className="flex justify-between items-center border-t border-gray-200 dark:border-gray-700 px-6 py-4 sticky bottom-0 bg-white dark:bg-gray-dark">
-                  <p className="text-xs text-gray-400 dark:text-gray-500">ID: #{activoSeleccionado?.id}</p>
-                  <div className="flex gap-3">
-                    <button type="button" onClick={() => setConfirmCancelarEdit(true)}
-                      className="rounded-lg border-2 border-gray-300 dark:border-gray-600 px-5 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all">
-                      Cancelar
-                    </button>
-                    <button type="submit"
-                      className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90 transition-all">
-                      Guardar Cambios
-                    </button>
-                  </div>
-                </div>
-              </form>
-            )}
-
-            {/* DETAIL VIEW */}
-            {!modoEditar && !cargandoEdit && (
-              <>
-            <div className="px-6 py-5 space-y-5">
-
-              {/* Imagen */}
-              {activoSeleccionado.imagen && (
-                <div className="flex justify-center">
-                  <div
-                    className="relative group cursor-zoom-in w-full max-h-64 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700"
-                    onClick={() => setImagenFullscreen(true)}
-                    title="Clic para ver en pantalla completa"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={activoSeleccionado.imagen}
-                      alt={activoSeleccionado.nombre}
-                      className="w-full max-h-64 object-contain transition-transform duration-300 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
-                      <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-white text-sm px-3 py-1.5 rounded-full flex items-center gap-1.5">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                        </svg>
-                        Ver pantalla completa
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* SECCIÓN DESTACADA: Lugar y Estado */}
-              <div className="rounded-lg border-2 border-primary/30 bg-primary/5 dark:bg-primary/10 p-4">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-primary mb-3">Ubicación y Estado</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Lugar</p>
-                    <p className="text-base font-bold text-black dark:text-white flex items-center gap-1.5">
-                      <svg className="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      {activoSeleccionado.lugar_nombre || 'N/A'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Estado</p>
-                    {activoSeleccionado.estado ? (
-                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${getColorEstado(activoSeleccionado.estado)}`}>
-                        {getNombreEstadoActivo(activoSeleccionado.estado)}
-                      </span>
-                    ) : (
-                      <p className="text-base font-bold text-gray-500">N/A</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* SECCIÓN: Identificación */}
-              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 p-4">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Identificación</h4>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Código</p>
-                    <p className="text-sm font-mono font-bold text-black dark:text-white mt-0.5">{activoSeleccionado.codigo}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Nombre</p>
-                    <p className="text-sm font-medium text-black dark:text-white mt-0.5">{activoSeleccionado.nombre}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Tipo de Activo</p>
-                    <span className="mt-0.5 inline-flex items-center rounded-full bg-primary/10 px-3 py-0.5 text-xs font-medium text-primary">
-                      {getNombreTipoActivo(activoSeleccionado.tipo_activo)}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Clasificación</p>
-                    <span className={`mt-0.5 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold border ${getColorClasificacion(activoSeleccionado.clasificacion)}`}>
-                      {getNombreClasificacion(activoSeleccionado.clasificacion)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* SECCIÓN: Adquisición */}
-              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 p-4">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Adquisición</h4>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Fecha de Adquisición</p>
-                    <p className="text-sm font-medium text-black dark:text-white mt-0.5">
-                      {activoSeleccionado.fecha_adquision
-                        ? new Date(activoSeleccionado.fecha_adquision).toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' })
-                        : 'N/A'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Costo</p>
-                    <p className="text-sm font-bold text-teal-700 dark:text-teal-300 mt-0.5">
-                      {activoSeleccionado.costo_adquision ? `Bs. ${parseFloat(String(activoSeleccionado.costo_adquision)).toFixed(2)}` : 'N/A'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Tipo de Constancia</p>
-                    <p className="text-sm font-medium text-black dark:text-white mt-0.5">
-                      {activoSeleccionado.tipo_constancia ? getNombreTipoConstancia(activoSeleccionado.tipo_constancia) : 'N/A'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Nro. Constancia</p>
-                    <p className="text-sm font-medium text-black dark:text-white mt-0.5">{activoSeleccionado.nro_constancia || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Marca</p>
-                    <p className="text-sm font-medium text-black dark:text-white mt-0.5">{activoSeleccionado.marca_nombre || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Proveedor</p>
-                    <p className="text-sm font-medium text-black dark:text-white mt-0.5">{activoSeleccionado.proveedor_nombre || 'N/A'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* SECCIÓN: Descripción */}
-              {activoSeleccionado.descripcion && (
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 p-4">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">Descripción</h4>
-                  <p className="text-sm text-black dark:text-white leading-relaxed">{activoSeleccionado.descripcion}</p>
-                </div>
-              )}
-
-              {/* SECCIÓN: Datos Específicos */}
-              {activoSeleccionado.datos_especificos && (
-                (() => {
-                  const entradas = Object.entries(activoSeleccionado.datos_especificos).filter(
-                    ([key, value]) => key !== 'activo_id' && value !== null && value !== undefined && value !== ''
-                  );
-                  if (entradas.length === 0) return null;
-                  return (
-                    <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-4">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-3">Datos Técnicos</h4>
-                      <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                        {entradas.map(([key, value]) => (
-                          <div key={key}>
-                            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                              {etiquetasDatosEspecificos[key] || key.replace(/_/g, ' ')}
-                            </p>
-                            <p className="text-sm font-medium text-black dark:text-white mt-0.5">{String(value)}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()
-              )}
-
-            </div>
-
-            {/* Footer detail */}
-            <div className="flex justify-between items-center border-t border-gray-200 dark:border-gray-700 px-6 py-4 sticky bottom-0 bg-white dark:bg-gray-dark">
-              <p className="text-xs text-gray-400 dark:text-gray-500">ID: #{activoSeleccionado.id}</p>
-              <div className="flex gap-3">
-                {!['TRANSFERIR','VENDIDO','DONADO','DANADO'].includes(activoSeleccionado.estado || '') && (
-                  <button
-                    onClick={iniciarEdicion}
-                    className="rounded-lg bg-yellow-500 hover:bg-yellow-600 px-5 py-2 text-sm font-semibold text-white transition-all"
-                  >
-                    Editar
-                  </button>
-                )}
-                <button
-                  onClick={cerrarModal}
-                  className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90 transition-all"
-                >
-                  Cerrar
-                </button>
-              </div>
-            </div>
-            </>
-            )}
-          </div>
-        </div>
+      {/* Modal de Edición */}
+      {modoEditar && (
+        <ModalEditarActivo
+          isOpen={modalAbierto}
+          activo={activoSeleccionado}
+          cargando={cargandoEdit}
+          formData={editFormData}
+          setFormData={setEditFormData}
+          lugares={editLugares}
+          marcas={editMarcas}
+          proveedores={editProveedores}
+          imagenPreview={editImagenPreview}
+          setImagenPreview={setEditImagenPreview}
+          subiendoImagen={editSubiendoImagen}
+          onImagenChange={handleEditImagenChange}
+          camposEquipoTec={editCamposEquipoTec}
+          setCamposEquipoTec={setEditCamposEquipoTec}
+          camposCelular={editCamposCelular}
+          setCamposCelular={setEditCamposCelular}
+          camposMotorizado={editCamposMotorizado}
+          setCamposMotorizado={setEditCamposMotorizado}
+          camposTerreno={editCamposTerreno}
+          setCamposTerreno={setEditCamposTerreno}
+          onSubmit={handleEditSubmit}
+          onClose={() => setConfirmCancelarEdit(true)}
+        />
       )}
 
       {/* Confirm cancelar edición */}

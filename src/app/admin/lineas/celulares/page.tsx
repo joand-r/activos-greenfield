@@ -15,6 +15,11 @@ import {
 import { marcaService, Marca } from "@/services/marca.service";
 import { lugarService, Lugar } from "@/services/lugar.service";
 import { useToast } from "@/contexts/ToastContext";
+import {
+  ModalDetalleCelular,
+  ModalCambiarEstadoCelular,
+  ModalDarBajaCelular,
+} from "@/components/modals";
 
 const CelularesLineasPage = () => {
   const { showLoading, hideLoading } = useLoading();
@@ -68,20 +73,25 @@ const CelularesLineasPage = () => {
   const cargarDatos = async () => {
     showLoading();
     try {
-      const [celularesData, marcasData, lugaresData, telefoniasData] = await Promise.all([
-        lineaService.getCelulares(),
+      const celularesData = await lineaService.getCelulares();
+      setCelulares(celularesData || []);
+      hideLoading();
+
+      // Carga en segundo plano de filtros de marcas, lugares y telefonías
+      Promise.all([
         marcaService.getAll(),
         lugarService.getAll(),
         lineaService.getTelefonias(),
-      ]);
-      setCelulares(celularesData || []);
-      setMarcas(marcasData || []);
-      setLugares(lugaresData || []);
-      setTelefonias(telefoniasData || []);
+      ]).then(([marcasData, lugaresData, telefoniasData]) => {
+        setMarcas(marcasData || []);
+        setLugares(lugaresData || []);
+        setTelefonias(telefoniasData || []);
+      }).catch((err) => {
+        console.warn("Carga en segundo plano de filtros:", err);
+      });
     } catch (err: any) {
       console.error("Error al cargar datos de celulares:", err);
       setError(err.message || "Error al cargar el inventario de celulares");
-    } finally {
       hideLoading();
     }
   };
@@ -504,15 +514,37 @@ const CelularesLineasPage = () => {
                               {cel.imei_2 && <div><span className="font-semibold text-gray-400">IMEI 2:</span> {cel.imei_2}</div>}
                               {!cel.imei_1 && !cel.imei_2 && <span className="italic text-gray-400">Sin IMEI registrado</span>}
                             </div>
+                            {cel.imei_2 && (
+                              <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/40">
+                                Dual SIM ({cel.total_lineas_asignadas || (cel.lineas_asignadas?.length ?? (cel.linea_numero ? 1 : 0))}/{cel.max_lineas || 2})
+                              </span>
+                            )}
                           </div>
                         </td>
 
                         {/* Línea Asignada */}
                         <td className="px-5 py-4 whitespace-nowrap">
-                          {cel.linea_numero ? (
+                          {cel.lineas_asignadas && cel.lineas_asignadas.length > 0 ? (
+                            <div className="space-y-2">
+                              {cel.lineas_asignadas.map((lin, idx) => (
+                                <div key={lin.id || idx} className="border-b border-black/5 dark:border-white/5 last:border-0 pb-1 last:pb-0">
+                                  <div className="flex items-center gap-1.5 font-mono font-bold text-black dark:text-white">
+                                    <span>{lin.numero}</span>
+                                    {cel.lineas_asignadas && cel.lineas_asignadas.length > 1 && (
+                                      <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-black/5 dark:bg-white/10 text-gray-500">
+                                        SIM {idx + 1}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                                    {lin.telefonia_nombre} {lin.plan_nombre ? `• ${lin.plan_nombre}` : ""}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          ) : cel.linea_numero ? (
                             <div>
-                              <div className="flex items-center gap-1.5 font-bold text-black dark:text-white">
-                                <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block"></span>
+                              <div className="font-mono font-bold text-black dark:text-white">
                                 <span>{cel.linea_numero}</span>
                               </div>
                               <p className="text-[10px] text-gray-500 dark:text-gray-400">
@@ -533,7 +565,29 @@ const CelularesLineasPage = () => {
 
                         {/* Personal Colaborador */}
                         <td className="px-5 py-4">
-                          {cel.personal_nombre ? (
+                          {cel.lineas_asignadas && cel.lineas_asignadas.length > 0 && cel.lineas_asignadas.some(l => l.personal_nombre) ? (
+                            <div className="space-y-2">
+                              {cel.lineas_asignadas.map((lin, idx) => (
+                                lin.personal_nombre ? (
+                                  <div key={lin.id || idx} className="border-b border-black/5 dark:border-white/5 last:border-0 pb-1 last:pb-0">
+                                    <p className="font-bold text-black dark:text-white">
+                                      {lin.personal_nombre}
+                                    </p>
+                                    {lin.personal_cargo && (
+                                      <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                                        {lin.personal_cargo}
+                                      </p>
+                                    )}
+                                    {lin.personal_departamento && (
+                                      <p className="text-[10px] text-indigo-500 font-medium">
+                                        {lin.personal_departamento}
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : null
+                              ))}
+                            </div>
+                          ) : cel.personal_nombre ? (
                             <div>
                               <p className="font-bold text-black dark:text-white">
                                 {cel.personal_nombre}
@@ -630,412 +684,32 @@ const CelularesLineasPage = () => {
         </div>
       </section>
 
-      {/* ================= MODAL DETALLE / FICHA TÉCNICA ================= */}
-      {modalDetalle && celularSeleccionado && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl my-8">
-            <div className="flex items-center justify-between pb-4 border-b border-black/5 dark:border-white/10 mb-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-black dark:text-white">
-                    Ficha Técnica del Celular
-                  </h3>
-                  <p className="text-xs text-gray-500">
-                    {celularSeleccionado.codigo} • {celularSeleccionado.nombre}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setModalDetalle(false)}
-                className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-gray-500 hover:text-black dark:hover:text-white transition-all cursor-pointer"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+      {/* ================= MODALES MODULARES ================= */}
+      <ModalDetalleCelular
+        isOpen={modalDetalle}
+        celular={celularSeleccionado}
+        onClose={() => setModalDetalle(false)}
+      />
 
-            <div className="space-y-5 text-xs text-black dark:text-white max-h-[70vh] overflow-y-auto pr-1">
-              {/* Cabecera del Equipo */}
-              <div className="flex items-center justify-between rounded-xl bg-black/5 dark:bg-white/5 p-4 border border-black/5 dark:border-white/10">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-white font-bold text-xl">
-                    📱
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-sm text-black dark:text-white">
-                      {celularSeleccionado.codigo} - {celularSeleccionado.nombre}
-                    </h4>
-                    <p className="text-xs text-primary font-semibold">
-                      {celularSeleccionado.marca_nombre} {celularSeleccionado.modelo}
-                    </p>
-                  </div>
-                </div>
-                <span
-                  className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border ${getColorEstadoCelular(
-                    celularSeleccionado.estado_operativo
-                  )}`}
-                >
-                  {getNombreEstadoCelular(celularSeleccionado.estado_operativo)}
-                </span>
-              </div>
+      <ModalCambiarEstadoCelular
+        isOpen={modalCambiarEstado}
+        celular={celularSeleccionado}
+        estadoData={estadoData}
+        setEstadoData={setEstadoData}
+        onSubmit={handleGuardarEstado}
+        onClose={() => setModalCambiarEstado(false)}
+        guardando={guardando}
+      />
 
-              {/* Hardware & IMEIs */}
-              <div>
-                <h5 className="font-bold text-black dark:text-white mb-2 uppercase tracking-wider text-[10px] text-gray-500">
-                  Especificaciones de Hardware
-                </h5>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div className="rounded-xl border border-black/5 dark:border-white/10 p-3 bg-white/40 dark:bg-black/20">
-                    <span className="text-[10px] text-gray-400 block">Número de Serie</span>
-                    <span className="font-bold">{celularSeleccionado.serie || "No especificado"}</span>
-                  </div>
-                  <div className="rounded-xl border border-black/5 dark:border-white/10 p-3 bg-white/40 dark:bg-black/20">
-                    <span className="text-[10px] text-gray-400 block">Memoria RAM</span>
-                    <span className="font-bold">{celularSeleccionado.memoria || "No especificada"}</span>
-                  </div>
-                  <div className="rounded-xl border border-black/5 dark:border-white/10 p-3 bg-white/40 dark:bg-black/20">
-                    <span className="text-[10px] text-gray-400 block">Almacenamiento</span>
-                    <span className="font-bold">{celularSeleccionado.capacidad_disco || "No especificado"}</span>
-                  </div>
-                  <div className="rounded-xl border border-black/5 dark:border-white/10 p-3 bg-white/40 dark:bg-black/20">
-                    <span className="text-[10px] text-gray-400 block">Procesador</span>
-                    <span className="font-bold">{celularSeleccionado.procesador || "No especificado"}</span>
-                  </div>
-                  <div className="rounded-xl border border-black/5 dark:border-white/10 p-3 bg-white/40 dark:bg-black/20">
-                    <span className="text-[10px] text-gray-400 block">IMEI 1</span>
-                    <span className="font-mono font-bold">{celularSeleccionado.imei_1 || "No registrado"}</span>
-                  </div>
-                  <div className="rounded-xl border border-black/5 dark:border-white/10 p-3 bg-white/40 dark:bg-black/20">
-                    <span className="text-[10px] text-gray-400 block">IMEI 2</span>
-                    <span className="font-mono font-bold">{celularSeleccionado.imei_2 || "No registrado"}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Accesorios */}
-              {celularSeleccionado.accesorios && (
-                <div>
-                  <h5 className="font-bold text-black dark:text-white mb-2 uppercase tracking-wider text-[10px] text-gray-500">
-                    Accesorios Incluidos
-                  </h5>
-                  <div className="rounded-xl border border-black/5 dark:border-white/10 p-3 bg-white/40 dark:bg-black/20">
-                    <p className="text-xs">{celularSeleccionado.accesorios}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Asignación Actual */}
-              <div>
-                <h5 className="font-bold text-black dark:text-white mb-2 uppercase tracking-wider text-[10px] text-gray-500">
-                  Línea y Custodia
-                </h5>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="rounded-xl border border-black/5 dark:border-white/10 p-3 bg-white/40 dark:bg-black/20">
-                    <span className="text-[10px] text-gray-400 block">Línea Telefónica Enlazada</span>
-                    {celularSeleccionado.linea_numero ? (
-                      <div>
-                        <p className="font-bold text-sm text-primary">{celularSeleccionado.linea_numero}</p>
-                        <p className="text-[11px] text-gray-500">
-                          {celularSeleccionado.telefonia_nombre} • {celularSeleccionado.plan_nombre}
-                        </p>
-                      </div>
-                    ) : (
-                      <span className="text-gray-400 italic">Sin línea telefónica asociada</span>
-                    )}
-                  </div>
-
-                  <div className="rounded-xl border border-black/5 dark:border-white/10 p-3 bg-white/40 dark:bg-black/20">
-                    <span className="text-[10px] text-gray-400 block">Colaborador Asignado</span>
-                    {celularSeleccionado.personal_nombre ? (
-                      <div>
-                        <p className="font-bold text-sm">{celularSeleccionado.personal_nombre}</p>
-                        <p className="text-[11px] text-gray-500">
-                          {celularSeleccionado.personal_cargo} ({celularSeleccionado.personal_departamento})
-                        </p>
-                      </div>
-                    ) : (
-                      <span className="text-gray-400 italic">Sin custodio asignado</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Adquisición y Ubicación */}
-              <div>
-                <h5 className="font-bold text-black dark:text-white mb-2 uppercase tracking-wider text-[10px] text-gray-500">
-                  Adquisición y Ubicación
-                </h5>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="rounded-xl border border-black/5 dark:border-white/10 p-3 bg-white/40 dark:bg-black/20">
-                    <span className="text-[10px] text-gray-400 block">Ubicación / Lugar</span>
-                    <span className="font-bold">{celularSeleccionado.lugar_nombre || "No especificado"}</span>
-                  </div>
-                  <div className="rounded-xl border border-black/5 dark:border-white/10 p-3 bg-white/40 dark:bg-black/20">
-                    <span className="text-[10px] text-gray-400 block">Fecha Adquisición</span>
-                    <span className="font-bold">
-                      {celularSeleccionado.fecha_adquision
-                        ? new Date(celularSeleccionado.fecha_adquision).toLocaleDateString()
-                        : "No registrada"}
-                    </span>
-                  </div>
-                  <div className="rounded-xl border border-black/5 dark:border-white/10 p-3 bg-white/40 dark:bg-black/20">
-                    <span className="text-[10px] text-gray-400 block">Costo Adquisición</span>
-                    <span className="font-bold">
-                      {celularSeleccionado.costo_adquision !== undefined
-                        ? `Bs. ${parseFloat(String(celularSeleccionado.costo_adquision)).toFixed(2)}`
-                        : "No registrado"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Información de Baja (si aplica) */}
-              {celularSeleccionado.estado_operativo === "BAJA" && (
-                <div className="rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/30 p-4">
-                  <h5 className="font-bold text-rose-800 dark:text-rose-300 mb-1 uppercase tracking-wider text-[10px]">
-                    Información de Baja
-                  </h5>
-                  <p className="text-xs text-rose-700 dark:text-rose-400 mb-1">
-                    <strong>Fecha de Baja:</strong>{" "}
-                    {celularSeleccionado.fecha_baja
-                      ? new Date(celularSeleccionado.fecha_baja).toLocaleDateString()
-                      : "No especificada"}
-                  </p>
-                  <p className="text-xs text-rose-700 dark:text-rose-400">
-                    <strong>Motivo:</strong> {celularSeleccionado.motivo_baja || "No especificado"}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-4 border-t border-black/5 dark:border-white/10 mt-4">
-              <button
-                type="button"
-                onClick={() => setModalDetalle(false)}
-                className="px-5 py-2.5 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-xs font-bold transition-all cursor-pointer"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================= MODAL CAMBIAR ESTADO OPERATIVO ================= */}
-      {modalCambiarEstado && celularSeleccionado && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl my-8">
-            <div className="flex items-center justify-between pb-4 border-b border-black/5 dark:border-white/10 mb-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-black dark:text-white">
-                    Cambiar Estado Operativo
-                  </h3>
-                  <p className="text-xs text-gray-500">
-                    Actualizar estado técnico y administrativo del celular
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setModalCambiarEstado(false)}
-                className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-gray-500 hover:text-black dark:hover:text-white transition-all cursor-pointer"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <form onSubmit={handleGuardarEstado} className="space-y-4 text-xs">
-              <div className="rounded-xl bg-black/5 dark:bg-white/5 p-3.5 border border-black/5 dark:border-white/10">
-                <p className="text-[10px] text-gray-400 uppercase font-bold">Equipo Seleccionado</p>
-                <p className="font-bold text-sm text-black dark:text-white">
-                  {celularSeleccionado.codigo} - {celularSeleccionado.marca_nombre} {celularSeleccionado.modelo}
-                </p>
-                {celularSeleccionado.serie && (
-                  <p className="text-[11px] text-gray-500">Serie: {celularSeleccionado.serie}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block font-bold text-black dark:text-white mb-2">
-                  Nuevo Estado Operativo <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={estadoData.estado_operativo}
-                  onChange={(e) =>
-                    setEstadoData({ ...estadoData, estado_operativo: e.target.value as EstadoOperativoCelular })
-                  }
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                  required
-                >
-                  <option value="DISPONIBLE">Disponible (En Stock para Asignar)</option>
-                  <option value="ACTIVO">En Servicio (Activo con Línea/Personal)</option>
-                  <option value="BAJA">Dado de Baja</option>
-                  <option value="DESHABILITADO">Deshabilitado</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-black dark:text-white mb-2">
-                  Accesorios y Equipamiento
-                </label>
-                <input
-                  type="text"
-                  value={estadoData.accesorios}
-                  onChange={(e) => setEstadoData({ ...estadoData, accesorios: e.target.value })}
-                  placeholder="Ej: Cargador original, funda protectora, cable..."
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-black dark:text-white mb-2">
-                  Motivo / Observaciones del Cambio
-                </label>
-                <textarea
-                  rows={3}
-                  value={estadoData.motivo}
-                  onChange={(e) => setEstadoData({ ...estadoData, motivo: e.target.value })}
-                  placeholder="Explica el motivo del cambio de estado operativo..."
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-black/5 dark:border-white/10">
-                <button
-                  type="button"
-                  onClick={() => setModalCambiarEstado(false)}
-                  className="px-4 py-2 rounded-xl bg-black/5 dark:bg-white/5 text-black dark:text-white hover:bg-black/10 text-xs font-bold transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={guardando}
-                  className="px-5 py-2 rounded-xl bg-primary text-white text-xs font-bold shadow-md hover:bg-primary/90 transition-all cursor-pointer disabled:opacity-50"
-                >
-                  {guardando ? "Guardando..." : "Actualizar Estado"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ================= MODAL DAR DE BAJA ================= */}
-      {modalBaja && celularSeleccionado && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 p-6 shadow-2xl my-8">
-            <div className="flex items-center justify-between pb-4 border-b border-black/5 dark:border-white/10 mb-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-600">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-black dark:text-white">
-                    Dar de Baja Celular
-                  </h3>
-                  <p className="text-xs text-gray-500">
-                    Desincorporación técnica y retiro del inventario
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setModalBaja(false)}
-                className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-gray-500 hover:text-black dark:hover:text-white transition-all cursor-pointer"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <form onSubmit={handleGuardarBaja} className="space-y-4 text-xs">
-              <div className="rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/30 p-4">
-                <p className="font-bold text-rose-800 dark:text-rose-300 mb-1">
-                  ¿Estás seguro de dar de baja este equipo celular?
-                </p>
-                <p className="text-[11px] text-rose-700 dark:text-rose-400">
-                  Esta acción marcará el celular como dado de baja en el inventario. El equipo pasará a estado inactivo.
-                </p>
-                {celularSeleccionado.linea_numero && (
-                  <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400 mt-2">
-                    ⚠️ Atención: Este celular está actualmente asociado a la línea telefónica {celularSeleccionado.linea_numero}.
-                  </p>
-                )}
-              </div>
-
-              <div className="rounded-xl bg-black/5 dark:bg-white/5 p-3.5 border border-black/5 dark:border-white/10">
-                <p className="text-[10px] text-gray-400 uppercase font-bold">Detalle del Equipo</p>
-                <p className="font-bold text-sm text-black dark:text-white">
-                  {celularSeleccionado.codigo} - {celularSeleccionado.marca_nombre} {celularSeleccionado.modelo}
-                </p>
-                {celularSeleccionado.serie && (
-                  <p className="text-[11px] text-gray-500">Serie: {celularSeleccionado.serie}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block font-bold text-black dark:text-white mb-2">
-                  Fecha de Baja <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={bajaData.fecha_baja}
-                  onChange={(e) => setBajaData({ ...bajaData, fecha_baja: e.target.value })}
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-black dark:text-white mb-2">
-                  Motivo de la Baja <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  rows={3}
-                  value={bajaData.motivo_baja}
-                  onChange={(e) => setBajaData({ ...bajaData, motivo_baja: e.target.value })}
-                  placeholder="Detalla el motivo de la baja (ej. daño irreparable, extravío, obsolescencia técnica)..."
-                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-black/5 dark:border-white/10">
-                <button
-                  type="button"
-                  onClick={() => setModalBaja(false)}
-                  className="px-4 py-2 rounded-xl bg-black/5 dark:bg-white/5 text-black dark:text-white hover:bg-black/10 text-xs font-bold transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={guardando}
-                  className="px-5 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold shadow-md hover:bg-rose-700 transition-all cursor-pointer disabled:opacity-50"
-                >
-                  {guardando ? "Procesando..." : "Confirmar Baja"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ModalDarBajaCelular
+        isOpen={modalBaja}
+        celular={celularSeleccionado}
+        bajaData={bajaData}
+        setBajaData={setBajaData}
+        onSubmit={handleGuardarBaja}
+        onClose={() => setModalBaja(false)}
+        guardando={guardando}
+      />
     </>
   );
 };
