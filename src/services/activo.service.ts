@@ -21,7 +21,9 @@ export type EstadoActivo =
   | 'DANADO'
   | 'DONADO'
   | 'VENDIDO'
-  | 'TRANSFERIR';
+  | 'TRANSFERIR'
+  | 'ASIGNADO'
+  | 'DESUSO';
 
 export type TipoConstancia = 
   | 'FACTURA'
@@ -179,6 +181,8 @@ export const getNombreEstadoActivo = (estado: EstadoActivo): string => {
     DONADO: 'Donado',
     VENDIDO: 'Vendido',
     TRANSFERIR: 'Por Transferir',
+    ASIGNADO: 'Asignado',
+    DESUSO: 'En Desuso',
   };
   return nombres[estado] || estado;
 };

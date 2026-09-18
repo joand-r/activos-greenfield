@@ -622,7 +622,9 @@ const EditarActivoPage = () => {
                               <option value="NUEVO">{getNombreEstadoActivo('NUEVO')}</option>
                               <option value="USADO">{getNombreEstadoActivo('USADO')}</option>
                               <option value="DISPONIBLE">{getNombreEstadoActivo('DISPONIBLE')}</option>
+                              <option value="ASIGNADO">{getNombreEstadoActivo('ASIGNADO')}</option>
                               <option value="DANADO">{getNombreEstadoActivo('DANADO')}</option>
+                              <option value="DESUSO">{getNombreEstadoActivo('DESUSO')}</option>
                               <option value="DONADO">{getNombreEstadoActivo('DONADO')}</option>
                               <option value="VENDIDO">{getNombreEstadoActivo('VENDIDO')}</option>
                               <option value="TRANSFERIR">{getNombreEstadoActivo('TRANSFERIR')}</option>
