@@ -1,4 +1,4 @@
-import { pool } from '@/lib/db/database';
+import { pool, ensureDatabaseSchema } from '@/lib/db/database';
 import { registrarAuditoria } from '@/server/utils/auditoria';
 
 export const obtenerLineas = async (req: any, res: any) => {
@@ -133,6 +133,7 @@ export const obtenerLineaPorId = async (req: any, res: any) => {
 };
 
 export const crearLinea = async (req: any, res: any) => {
+  await ensureDatabaseSchema();
   const client = await pool.connect();
   try {
     const { numero, activo_id, plan_id, personal_id, estado, fecha_asignacion, observaciones } = req.body;
@@ -267,31 +268,37 @@ export const crearLinea = async (req: any, res: any) => {
 };
 
 export const actualizarLinea = async (req: any, res: any) => {
+  await ensureDatabaseSchema();
   const client = await pool.connect();
   try {
     const { id } = req.params;
     const { numero, activo_id, personal_id, observaciones } = req.body;
 
+    if (!id || isNaN(parseInt(id, 10))) {
+      return res.status(400).json({ success: false, error: 'ID de línea inválido' });
+    }
+    const lineaId = parseInt(id, 10);
+
     await client.query('BEGIN');
-    const prevResult = await client.query('SELECT * FROM linea WHERE id = $1', [id]);
+    const prevResult = await client.query('SELECT * FROM linea WHERE id = $1', [lineaId]);
     if (prevResult.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ success: false, error: 'Línea no encontrada' });
     }
 
     if (numero && numero.trim() !== prevResult.rows[0].numero) {
-      const existsCheck = await client.query('SELECT id FROM linea WHERE numero = $1 AND id != $2', [numero.trim(), id]);
+      const existsCheck = await client.query('SELECT id FROM linea WHERE numero = $1 AND id != $2', [numero.trim(), lineaId]);
       if (existsCheck.rows.length > 0) {
         await client.query('ROLLBACK');
         return res.status(400).json({ success: false, error: 'El número ya pertenece a otra línea' });
       }
     }
 
-    const nuevoActivoId = activo_id !== undefined ? (activo_id ? parseInt(activo_id) : null) : prevResult.rows[0].activo_id;
-    const anteriorActivoId = prevResult.rows[0].activo_id;
+    const nuevoActivoId = activo_id !== undefined ? (activo_id ? parseInt(activo_id, 10) : null) : (prevResult.rows[0].activo_id ? parseInt(prevResult.rows[0].activo_id, 10) : null);
+    const anteriorActivoId = prevResult.rows[0].activo_id ? parseInt(prevResult.rows[0].activo_id, 10) : null;
 
-    const nuevoPersonalId = personal_id !== undefined ? (personal_id ? parseInt(personal_id) : null) : prevResult.rows[0].personal_id;
-    const anteriorPersonalId = prevResult.rows[0].personal_id;
+    const nuevoPersonalId = personal_id !== undefined ? (personal_id ? parseInt(personal_id, 10) : null) : (prevResult.rows[0].personal_id ? parseInt(prevResult.rows[0].personal_id, 10) : null);
+    const anteriorPersonalId = prevResult.rows[0].personal_id ? parseInt(prevResult.rows[0].personal_id, 10) : null;
 
     // Si cambió el equipo celular asignado, validar disponibilidad por IMEI
     if (nuevoActivoId && Number(nuevoActivoId) !== Number(anteriorActivoId)) {
@@ -320,7 +327,7 @@ export const actualizarLinea = async (req: any, res: any) => {
 
       const lineasAsignadasCheck = await client.query(
         `SELECT id, numero FROM linea WHERE activo_id = $1 AND estado != 'BAJA' AND id != $2`,
-        [nuevoActivoId, id]
+        [nuevoActivoId, lineaId]
       );
       const totalLineasAsignadas = lineasAsignadasCheck.rows.length;
 
@@ -364,7 +371,7 @@ export const actualizarLinea = async (req: any, res: any) => {
         nuevoActivoId,
         nuevoPersonalId,
         observaciones !== undefined ? observaciones : prevResult.rows[0].observaciones,
-        id,
+        lineaId,
         anteriorPersonalId || 0,
       ]
     );
@@ -373,9 +380,9 @@ export const actualizarLinea = async (req: any, res: any) => {
     if (personal_id !== undefined && Number(nuevoPersonalId || 0) !== Number(anteriorPersonalId || 0)) {
       await client.query(
         `INSERT INTO historial_linea (linea_id, personal_anterior_id, personal_nuevo_id, plan_anterior_id, plan_nuevo_id, activo_anterior_id, activo_nuevo_id, tipo_evento, motivo, usuario_id)
-         VALUES ($1, $2, $3, $4, $4, $5, $5, 'ASIGNACION', $6, $7)`,
+         VALUES ($1, $2, $3, $4, $4, $5, $5, 'TRANSFERENCIA', $6, $7)`,
         [
-          id,
+          lineaId,
           anteriorPersonalId || null,
           nuevoPersonalId || null,
           prevResult.rows[0].plan_id,
@@ -404,7 +411,7 @@ export const actualizarLinea = async (req: any, res: any) => {
       if (anteriorActivoId) {
         const otrasLineas = await client.query(
           `SELECT COUNT(*)::int as total FROM linea WHERE activo_id = $1 AND estado != 'BAJA' AND id != $2`,
-          [anteriorActivoId, id]
+          [anteriorActivoId, lineaId]
         );
         if (otrasLineas.rows[0].total === 0) {
           await client.query(
@@ -420,9 +427,9 @@ export const actualizarLinea = async (req: any, res: any) => {
 
       await client.query(
         `INSERT INTO historial_linea (linea_id, personal_anterior_id, personal_nuevo_id, plan_anterior_id, plan_nuevo_id, activo_anterior_id, activo_nuevo_id, tipo_evento, motivo, usuario_id)
-         VALUES ($1, $2, $2, $3, $3, $4, $5, 'ASIGNACION', $6, $7)`,
+         VALUES ($1, $2, $2, $3, $3, $4, $5, 'CAMBIO_EQUIPO', $6, $7)`,
         [
-          id,
+          lineaId,
           nuevoPersonalId || null,
           prevResult.rows[0].plan_id,
           anteriorActivoId || null,
@@ -435,7 +442,7 @@ export const actualizarLinea = async (req: any, res: any) => {
 
     await registrarAuditoria(client, {
       tabla_afectada: 'linea',
-      registro_id: parseInt(id),
+      registro_id: lineaId,
       accion: 'ACTUALIZAR',
       datos_anteriores: prevResult.rows[0],
       datos_nuevos: result.rows[0],
@@ -455,26 +462,33 @@ export const actualizarLinea = async (req: any, res: any) => {
 };
 
 export const transferirLinea = async (req: any, res: any) => {
+  await ensureDatabaseSchema();
   const client = await pool.connect();
   try {
     const { id } = req.params;
     const { personal_nuevo_id, motivo } = req.body;
 
+    if (!id || isNaN(parseInt(id, 10))) {
+      return res.status(400).json({ success: false, error: 'ID de línea inválido' });
+    }
+    const lineaId = parseInt(id, 10);
+
     if (!personal_nuevo_id) {
       return res.status(400).json({ success: false, error: 'El nuevo personal es requerido para la transferencia' });
     }
+    const nuevoPersonalId = parseInt(personal_nuevo_id, 10);
 
     await client.query('BEGIN');
-    const lineaResult = await client.query('SELECT * FROM linea WHERE id = $1', [id]);
+    const lineaResult = await client.query('SELECT * FROM linea WHERE id = $1', [lineaId]);
     if (lineaResult.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ success: false, error: 'Línea no encontrada' });
     }
 
     const lineaActual = lineaResult.rows[0];
-    const personalAnteriorId = lineaActual.personal_id;
+    const personalAnteriorId = lineaActual.personal_id ? parseInt(lineaActual.personal_id, 10) : null;
 
-    if (Number(personalAnteriorId) === Number(personal_nuevo_id)) {
+    if (personalAnteriorId && personalAnteriorId === nuevoPersonalId) {
       await client.query('ROLLBACK');
       return res.status(400).json({ success: false, error: 'La línea ya se encuentra asignada a este personal' });
     }
@@ -489,18 +503,19 @@ export const transferirLinea = async (req: any, res: any) => {
            motivo_baja = NULL,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $2 RETURNING *`,
-      [personal_nuevo_id, id]
+      [nuevoPersonalId, lineaId]
     );
 
     // Registrar en historial_linea
     await client.query(
-      `INSERT INTO historial_linea (linea_id, personal_anterior_id, personal_nuevo_id, plan_anterior_id, plan_nuevo_id, tipo_evento, motivo, usuario_id)
-       VALUES ($1, $2, $3, $4, $4, 'TRANSFERENCIA', $5, $6)`,
+      `INSERT INTO historial_linea (linea_id, personal_anterior_id, personal_nuevo_id, plan_anterior_id, plan_nuevo_id, activo_anterior_id, activo_nuevo_id, tipo_evento, motivo, usuario_id)
+       VALUES ($1, $2, $3, $4, $4, $5, $5, 'TRANSFERENCIA', $6, $7)`,
       [
-        id,
+        lineaId,
         personalAnteriorId || null,
-        personal_nuevo_id,
+        nuevoPersonalId,
         lineaActual.plan_id,
+        lineaActual.activo_id || null,
         motivo ? motivo.trim() : 'Reasignación de personal',
         req.user?.id || req.userId || null,
       ]
@@ -508,7 +523,7 @@ export const transferirLinea = async (req: any, res: any) => {
 
     await registrarAuditoria(client, {
       tabla_afectada: 'linea',
-      registro_id: parseInt(id),
+      registro_id: lineaId,
       accion: 'TRANSFERENCIA',
       datos_anteriores: lineaActual,
       datos_nuevos: result.rows[0],
@@ -528,26 +543,33 @@ export const transferirLinea = async (req: any, res: any) => {
 };
 
 export const cambiarPlanLinea = async (req: any, res: any) => {
+  await ensureDatabaseSchema();
   const client = await pool.connect();
   try {
     const { id } = req.params;
     const { plan_nuevo_id, motivo } = req.body;
 
+    if (!id || isNaN(parseInt(id, 10))) {
+      return res.status(400).json({ success: false, error: 'ID de línea inválido' });
+    }
+    const lineaId = parseInt(id, 10);
+
     if (!plan_nuevo_id) {
       return res.status(400).json({ success: false, error: 'El nuevo plan es requerido' });
     }
+    const nuevoPlanId = parseInt(plan_nuevo_id, 10);
 
     await client.query('BEGIN');
-    const lineaResult = await client.query('SELECT * FROM linea WHERE id = $1', [id]);
+    const lineaResult = await client.query('SELECT * FROM linea WHERE id = $1', [lineaId]);
     if (lineaResult.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ success: false, error: 'Línea no encontrada' });
     }
 
     const lineaActual = lineaResult.rows[0];
-    const planAnteriorId = lineaActual.plan_id;
+    const planAnteriorId = lineaActual.plan_id ? parseInt(lineaActual.plan_id, 10) : null;
 
-    if (Number(planAnteriorId) === Number(plan_nuevo_id)) {
+    if (planAnteriorId && planAnteriorId === nuevoPlanId) {
       await client.query('ROLLBACK');
       return res.status(400).json({ success: false, error: 'La línea ya cuenta con este plan' });
     }
@@ -557,18 +579,19 @@ export const cambiarPlanLinea = async (req: any, res: any) => {
        SET plan_id = $1,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $2 RETURNING *`,
-      [plan_nuevo_id, id]
+      [nuevoPlanId, lineaId]
     );
 
     // Registrar en historial_linea
     await client.query(
-      `INSERT INTO historial_linea (linea_id, personal_anterior_id, personal_nuevo_id, plan_anterior_id, plan_nuevo_id, tipo_evento, motivo, usuario_id)
-       VALUES ($1, $2, $2, $3, $4, 'CAMBIO_PLAN', $5, $6)`,
+      `INSERT INTO historial_linea (linea_id, personal_anterior_id, personal_nuevo_id, plan_anterior_id, plan_nuevo_id, activo_anterior_id, activo_nuevo_id, tipo_evento, motivo, usuario_id)
+       VALUES ($1, $2, $2, $3, $4, $5, $5, 'CAMBIO_PLAN', $6, $7)`,
       [
-        id,
+        lineaId,
         lineaActual.personal_id || null,
         planAnteriorId,
-        plan_nuevo_id,
+        nuevoPlanId,
+        lineaActual.activo_id || null,
         motivo ? motivo.trim() : 'Actualización de plan telefónico',
         req.user?.id || req.userId || null,
       ]
@@ -576,7 +599,7 @@ export const cambiarPlanLinea = async (req: any, res: any) => {
 
     await registrarAuditoria(client, {
       tabla_afectada: 'linea',
-      registro_id: parseInt(id),
+      registro_id: lineaId,
       accion: 'CAMBIO_PLAN',
       datos_anteriores: lineaActual,
       datos_nuevos: result.rows[0],
@@ -596,25 +619,36 @@ export const cambiarPlanLinea = async (req: any, res: any) => {
 };
 
 export const cambiarEquipoLinea = async (req: any, res: any) => {
+  await ensureDatabaseSchema();
   const client = await pool.connect();
   try {
     const { id } = req.params;
     const { activo_nuevo_id, motivo } = req.body;
 
+    if (!id || isNaN(parseInt(id, 10))) {
+      return res.status(400).json({ success: false, error: 'ID de línea inválido' });
+    }
+    const lineaId = parseInt(id, 10);
+
     await client.query('BEGIN');
-    const lineaResult = await client.query('SELECT * FROM linea WHERE id = $1', [id]);
+    const lineaResult = await client.query('SELECT * FROM linea WHERE id = $1', [lineaId]);
     if (lineaResult.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ success: false, error: 'Línea no encontrada' });
     }
 
     const lineaActual = lineaResult.rows[0];
-    const anteriorActivoId = lineaActual.activo_id;
-    const nuevoActivoId = activo_nuevo_id !== undefined && activo_nuevo_id !== "" && activo_nuevo_id !== null ? parseInt(activo_nuevo_id) : null;
+    const anteriorActivoId = lineaActual.activo_id ? parseInt(lineaActual.activo_id, 10) : null;
+    const nuevoActivoId = activo_nuevo_id !== undefined && activo_nuevo_id !== "" && activo_nuevo_id !== null ? parseInt(activo_nuevo_id, 10) : null;
 
-    if (anteriorActivoId && nuevoActivoId && Number(anteriorActivoId) === Number(nuevoActivoId)) {
+    if (anteriorActivoId && nuevoActivoId && anteriorActivoId === nuevoActivoId) {
       await client.query('ROLLBACK');
       return res.status(400).json({ success: false, error: 'La línea ya cuenta con este equipo celular asignado' });
+    }
+
+    if (!anteriorActivoId && !nuevoActivoId) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, error: 'La línea ya se encuentra sin equipo celular vinculado' });
     }
 
     // Validar el nuevo equipo celular si se especificó uno
@@ -644,7 +678,7 @@ export const cambiarEquipoLinea = async (req: any, res: any) => {
 
       const lineasAsignadasCheck = await client.query(
         `SELECT id, numero FROM linea WHERE activo_id = $1 AND estado != 'BAJA' AND id != $2`,
-        [nuevoActivoId, id]
+        [nuevoActivoId, lineaId]
       );
       const totalLineasAsignadas = lineasAsignadasCheck.rows.length;
 
@@ -671,7 +705,7 @@ export const cambiarEquipoLinea = async (req: any, res: any) => {
        SET activo_id = $1,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $2 RETURNING *`,
-      [nuevoActivoId, id]
+      [nuevoActivoId, lineaId]
     );
 
     // 2. Activar nuevo celular si aplica
@@ -690,7 +724,7 @@ export const cambiarEquipoLinea = async (req: any, res: any) => {
     if (anteriorActivoId) {
       const otrasLineas = await client.query(
         `SELECT COUNT(*)::int as total FROM linea WHERE activo_id = $1 AND estado != 'BAJA' AND id != $2`,
-        [anteriorActivoId, id]
+        [anteriorActivoId, lineaId]
       );
       if (otrasLineas.rows[0].total === 0) {
         await client.query(
@@ -709,7 +743,7 @@ export const cambiarEquipoLinea = async (req: any, res: any) => {
       `INSERT INTO historial_linea (linea_id, personal_anterior_id, personal_nuevo_id, plan_anterior_id, plan_nuevo_id, activo_anterior_id, activo_nuevo_id, tipo_evento, motivo, usuario_id)
        VALUES ($1, $2, $2, $3, $3, $4, $5, 'CAMBIO_EQUIPO', $6, $7)`,
       [
-        id,
+        lineaId,
         lineaActual.personal_id || null,
         lineaActual.plan_id,
         anteriorActivoId || null,
@@ -721,7 +755,7 @@ export const cambiarEquipoLinea = async (req: any, res: any) => {
 
     await registrarAuditoria(client, {
       tabla_afectada: 'linea',
-      registro_id: parseInt(id),
+      registro_id: lineaId,
       accion: 'CAMBIO_EQUIPO',
       datos_anteriores: lineaActual,
       datos_nuevos: result.rows[0],
@@ -741,17 +775,23 @@ export const cambiarEquipoLinea = async (req: any, res: any) => {
 };
 
 export const darDeBajaLinea = async (req: any, res: any) => {
+  await ensureDatabaseSchema();
   const client = await pool.connect();
   try {
     const { id } = req.params;
     const { motivo_baja, fecha_baja } = req.body;
+
+    if (!id || isNaN(parseInt(id, 10))) {
+      return res.status(400).json({ success: false, error: 'ID de línea inválido' });
+    }
+    const lineaId = parseInt(id, 10);
 
     if (!motivo_baja || motivo_baja.trim() === '') {
       return res.status(400).json({ success: false, error: 'El motivo de la baja es requerido' });
     }
 
     await client.query('BEGIN');
-    const lineaResult = await client.query('SELECT * FROM linea WHERE id = $1', [id]);
+    const lineaResult = await client.query('SELECT * FROM linea WHERE id = $1', [lineaId]);
     if (lineaResult.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ success: false, error: 'Línea no encontrada' });
@@ -767,14 +807,14 @@ export const darDeBajaLinea = async (req: any, res: any) => {
            motivo_baja = $2,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $3 RETURNING *`,
-      [fechaBajaFinal, motivo_baja.trim(), id]
+      [fechaBajaFinal, motivo_baja.trim(), lineaId]
     );
 
     // Si la línea tenía un celular asignado, revisar si queda libre
     if (lineaActual.activo_id) {
       const otrasLineas = await client.query(
         `SELECT COUNT(*)::int as total FROM linea WHERE activo_id = $1 AND estado != 'BAJA' AND id != $2`,
-        [lineaActual.activo_id, id]
+        [lineaActual.activo_id, lineaId]
       );
       if (otrasLineas.rows[0].total === 0) {
         await client.query(
@@ -793,7 +833,7 @@ export const darDeBajaLinea = async (req: any, res: any) => {
       `INSERT INTO historial_linea (linea_id, personal_anterior_id, plan_anterior_id, activo_anterior_id, tipo_evento, motivo, usuario_id)
        VALUES ($1, $2, $3, $4, 'BAJA', $5, $6)`,
       [
-        id,
+        lineaId,
         lineaActual.personal_id || null,
         lineaActual.plan_id,
         lineaActual.activo_id || null,
@@ -804,7 +844,7 @@ export const darDeBajaLinea = async (req: any, res: any) => {
 
     await registrarAuditoria(client, {
       tabla_afectada: 'linea',
-      registro_id: parseInt(id),
+      registro_id: lineaId,
       accion: 'BAJA',
       datos_anteriores: lineaActual,
       datos_nuevos: result.rows[0],
@@ -825,6 +865,7 @@ export const darDeBajaLinea = async (req: any, res: any) => {
 
 export const obtenerHistorialLinea = async (req: any, res: any) => {
   try {
+    await ensureDatabaseSchema();
     const { id } = req.params;
 
     const result = await pool.query(

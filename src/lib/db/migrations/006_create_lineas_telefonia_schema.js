@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Migración 006: Creación del esquema para el Módulo de Líneas Telefónicas
  * Tablas: telefonia, plan_telefonia, personal, linea, historial_linea
  */
@@ -75,7 +75,7 @@ export async function up(client) {
       personal_nuevo_id INTEGER REFERENCES personal(id) ON DELETE SET NULL,
       plan_anterior_id INTEGER REFERENCES plan_telefonia(id) ON DELETE SET NULL,
       plan_nuevo_id INTEGER REFERENCES plan_telefonia(id) ON DELETE SET NULL,
-      tipo_evento VARCHAR(10) NOT NULL CHECK (tipo_evento IN ('ASIGNACION', 'TRANSFERENCIA', 'CAMBIO_PLAN', 'BAJA', 'REACTIVACION')),
+      tipo_evento VARCHAR(50) NOT NULL CHECK (tipo_evento IN ('ASIGNACION', 'TRANSFERENCIA', 'CAMBIO_PLAN', 'CAMBIO_EQUIPO', 'EDICION', 'BAJA', 'REACTIVACION')),
       motivo TEXT,
       usuario_id INTEGER REFERENCES usuario(id) ON DELETE SET NULL,
       fecha TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

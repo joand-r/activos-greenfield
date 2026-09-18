@@ -68,6 +68,53 @@ export const query = async (text: string, params?: any[]) => {
   }
 };
 
+let schemaEnsured = false;
+let schemaPromise: Promise<void> | null = null;
+
+export const ensureDatabaseSchema = async (): Promise<void> => {
+  if (schemaEnsured) return;
+  if (schemaPromise) return schemaPromise;
+
+  schemaPromise = (async () => {
+    try {
+      const client = await pool.connect();
+      try {
+        await client.query(`
+          -- 1. Ampliar tipo_evento en historial_linea a VARCHAR(50) y actualizar constraint
+          DO $$
+          BEGIN
+            IF EXISTS (
+              SELECT 1 FROM information_schema.columns 
+              WHERE table_name = 'historial_linea' AND column_name = 'tipo_evento'
+            ) THEN
+              ALTER TABLE historial_linea ALTER COLUMN tipo_evento TYPE VARCHAR(50);
+              ALTER TABLE historial_linea DROP CONSTRAINT IF EXISTS historial_linea_tipo_evento_check;
+              ALTER TABLE historial_linea ADD CONSTRAINT historial_linea_tipo_evento_check 
+                CHECK (tipo_evento IN ('ASIGNACION', 'TRANSFERENCIA', 'CAMBIO_PLAN', 'CAMBIO_EQUIPO', 'EDICION', 'BAJA', 'REACTIVACION'));
+            END IF;
+          END $$;
+
+          -- 2. Asegurar columnas de activo_id en linea y historial_linea
+          ALTER TABLE linea ADD COLUMN IF NOT EXISTS activo_id BIGINT REFERENCES activo(id) ON DELETE SET NULL;
+          CREATE INDEX IF NOT EXISTS idx_linea_activo_id ON linea(activo_id);
+
+          ALTER TABLE historial_linea ADD COLUMN IF NOT EXISTS activo_anterior_id BIGINT REFERENCES activo(id) ON DELETE SET NULL;
+          ALTER TABLE historial_linea ADD COLUMN IF NOT EXISTS activo_nuevo_id BIGINT REFERENCES activo(id) ON DELETE SET NULL;
+        `);
+        schemaEnsured = true;
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      console.error('⚠️ Error asegurando esquema de BD:', error);
+    } finally {
+      schemaPromise = null;
+    }
+  })();
+
+  return schemaPromise;
+};
+
 export const getClient = () => pool.connect();
 
 export { pool };

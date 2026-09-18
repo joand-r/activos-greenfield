@@ -68,7 +68,7 @@ export interface Linea {
   updated_at?: string;
 }
 
-export type TipoEventoHistorial = 'ASIGNACION' | 'TRANSFERENCIA' | 'CAMBIO_PLAN' | 'CAMBIO_EQUIPO' | 'BAJA' | 'REACTIVACION';
+export type TipoEventoHistorial = 'ASIGNACION' | 'TRANSFERENCIA' | 'CAMBIO_PLAN' | 'CAMBIO_EQUIPO' | 'EDICION' | 'BAJA' | 'REACTIVACION';
 
 export interface HistorialLinea {
   id: number;
