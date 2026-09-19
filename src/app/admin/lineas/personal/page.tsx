@@ -14,24 +14,25 @@ import {
 import InfoModal from "@/components/ui/InfoModal";
 import { useToast } from "@/contexts/ToastContext";
 import { ModalCrearEditarPersonal } from "@/components/modals";
+import { useModalState, useDataTable } from "@/hooks";
+import { PaginationControl } from "@/components/ui/PaginationControl";
 
 const PersonalPage = () => {
   const { showLoading, hideLoading } = useLoading();
   const toast = useToast();
 
   const [personalList, setPersonalList] = useState<Personal[]>([]);
-  const [busqueda, setBusqueda] = useState("");
   const [filtroDepartamento, setFiltroDepartamento] = useState("");
   const [error, setError] = useState("");
 
-  // Modales
-  const [modalEdicionAbierto, setModalEdicionAbierto] = useState(false);
-  const [modalRegistroAbierto, setModalRegistroAbierto] = useState(false);
-  const [modalLineasAbierto, setModalLineasAbierto] = useState(false);
-  const [personalSeleccionado, setPersonalSeleccionado] = useState<Personal | null>(null);
+  // Modales gestionados con useModalState
+  const modalEdicion = useModalState<Personal>();
+  const modalRegistro = useModalState();
+  const modalLineas = useModalState<Personal>();
+  const modalInfo = useModalState();
+
   const [lineasDelPersonal, setLineasDelPersonal] = useState<Linea[]>([]);
   const [cargandoLineas, setCargandoLineas] = useState(false);
-  const [modalInfo, setModalInfo] = useState(false);
 
   // Formularios
   const [datosRegistro, setDatosRegistro] = useState({
@@ -46,6 +47,29 @@ const PersonalPage = () => {
     departamento: "",
     cargo: "",
     estado: "ACTIVO" as EstadoPersonal,
+  });
+
+  // Departamentos únicos para el filtro
+  const departamentos = useMemo(() => {
+    const deps = new Set(personalList.map((p) => p.departamento).filter(Boolean));
+    return Array.from(deps);
+  }, [personalList]);
+
+  // Hook DataTable para búsqueda con debounce, filtrado y paginación
+  const {
+    searchTerm: busqueda,
+    setSearchTerm: setBusqueda,
+    paginatedData: personalPaginado,
+    totalFiltered,
+    pagination,
+  } = useDataTable<Personal>({
+    data: personalList,
+    searchFields: ["nombre", "departamento", "cargo"],
+    pageSize: 10,
+    filterFn: (p) => {
+      if (filtroDepartamento && p.departamento !== filtroDepartamento) return false;
+      return true;
+    },
   });
 
   useEffect(() => {
@@ -73,32 +97,21 @@ const PersonalPage = () => {
       cargo: "",
       estado: "ACTIVO",
     });
-    setModalRegistroAbierto(true);
-  };
-
-  const cerrarModalRegistro = () => {
-    setModalRegistroAbierto(false);
+    modalRegistro.open();
   };
 
   const abrirModalEdicion = (p: Personal) => {
-    setPersonalSeleccionado(p);
     setDatosEdicion({
       nombre: p.nombre,
       departamento: p.departamento,
       cargo: p.cargo,
       estado: p.estado,
     });
-    setModalEdicionAbierto(true);
-  };
-
-  const cerrarModalEdicion = () => {
-    setModalEdicionAbierto(false);
-    setPersonalSeleccionado(null);
+    modalEdicion.open(p);
   };
 
   const verLineasDePersonal = async (p: Personal) => {
-    setPersonalSeleccionado(p);
-    setModalLineasAbierto(true);
+    modalLineas.open(p);
     setCargandoLineas(true);
     try {
       const res = await lineaService.getPersonalById(p.id);
@@ -109,12 +122,6 @@ const PersonalPage = () => {
     } finally {
       setCargandoLineas(false);
     }
-  };
-
-  const cerrarModalLineas = () => {
-    setModalLineasAbierto(false);
-    setPersonalSeleccionado(null);
-    setLineasDelPersonal([]);
   };
 
   const handleRegistroSubmit = async (e: React.FormEvent) => {
@@ -133,7 +140,7 @@ const PersonalPage = () => {
         estado: datosRegistro.estado,
       });
       toast.success("Personal registrado", "El colaborador ha sido registrado exitosamente");
-      cerrarModalRegistro();
+      modalRegistro.close();
       cargarPersonal();
     } catch (err: any) {
       toast.error("Error al registrar", err.message || "No se pudo registrar el personal");
@@ -144,7 +151,7 @@ const PersonalPage = () => {
 
   const handleEdicionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!personalSeleccionado) return;
+    if (!modalEdicion.data) return;
     if (!datosEdicion.nombre.trim() || !datosEdicion.departamento.trim() || !datosEdicion.cargo.trim()) {
       toast.error("Campos requeridos", "Por favor completa todos los campos obligatorios");
       return;
@@ -152,48 +159,27 @@ const PersonalPage = () => {
 
     showLoading();
     try {
-      await lineaService.updatePersonal(personalSeleccionado.id, {
+      await lineaService.updatePersonal(modalEdicion.data.id, {
         nombre: datosEdicion.nombre.trim(),
         departamento: datosEdicion.departamento.trim(),
         cargo: datosEdicion.cargo.trim(),
         estado: datosEdicion.estado,
       });
-      toast.success("Personal actualizado", "Los datos han sido actualizados exitosamente");
-      cerrarModalEdicion();
+      toast.success("Personal actualizado", "Los datos han sido guardados exitosamente");
+      modalEdicion.close();
       cargarPersonal();
     } catch (err: any) {
-      toast.error("Error al actualizar", err.message || "No se pudo actualizar el personal");
+      toast.error("Error al actualizar", err.message || "No se pudo actualizar el colaborador");
     } finally {
       hideLoading();
     }
   };
 
-  const departamentosUnicos = useMemo(() => {
-    return Array.from(new Set((personalList || []).map((p) => p.departamento))).filter(Boolean);
-  }, [personalList]);
-
-  const personalFiltrado = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
-    return (personalList || []).filter((p) => {
-      const cumpleBusqueda =
-        !q ||
-        p.nombre?.toLowerCase().includes(q) ||
-        p.cargo?.toLowerCase().includes(q) ||
-        p.departamento?.toLowerCase().includes(q);
-      const cumpleDepartamento = !filtroDepartamento || p.departamento === filtroDepartamento;
-      return cumpleBusqueda && cumpleDepartamento;
-    });
-  }, [personalList, busqueda, filtroDepartamento]);
-
-  const totalConLineas = useMemo(() => {
-    return (personalList || []).filter((p) => Number(p.total_lineas) > 0).length;
-  }, [personalList]);
-
   return (
     <>
       <Breadcrumb
-        pageName="Personal y Asignaciones"
-        description="Gestión de colaboradores, asignación de líneas corporativas y control de costos por persona"
+        pageName="Personal de la Empresa"
+        description="Gestión de colaboradores, asignación de líneas corporativas y control por departamento"
       />
 
       <section className="pb-16 pt-6">
@@ -208,27 +194,27 @@ const PersonalPage = () => {
           <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="rounded-2xl border border-black/5 dark:border-white/5 bg-white/60 dark:bg-black/40 backdrop-blur-md p-5 shadow-sm">
               <p className="text-[10px] font-semibold text-body-color dark:text-gray-400 uppercase tracking-wider">
-                Total Personal
+                Total Colaboradores
               </p>
               <p className="text-2xl font-bold text-primary">{personalList.length}</p>
             </div>
             <div className="rounded-2xl border border-black/5 dark:border-white/5 bg-white/60 dark:bg-black/40 backdrop-blur-md p-5 shadow-sm">
               <p className="text-[10px] font-semibold text-body-color dark:text-gray-400 uppercase tracking-wider">
-                Personal con Líneas
+                Colaboradores con Línea Asignada
               </p>
               <p className="text-2xl font-bold text-emerald-600">
-                {totalConLineas}
+                {personalList.filter((p) => (p.total_lineas || 0) > 0).length}
               </p>
             </div>
             <div className="rounded-2xl border border-black/5 dark:border-white/5 bg-white/60 dark:bg-black/40 backdrop-blur-md p-5 shadow-sm">
               <p className="text-[10px] font-semibold text-body-color dark:text-gray-400 uppercase tracking-wider">
-                Departamentos
+                Departamentos Registrados
               </p>
-              <p className="text-2xl font-bold text-indigo-600">{departamentosUnicos.length}</p>
+              <p className="text-2xl font-bold text-indigo-600">{departamentos.length}</p>
             </div>
           </div>
 
-          {/* Filtros y Botón */}
+          {/* Barra de Filtros y Acciones */}
           <div className="mb-6 rounded-2xl border border-black/5 dark:border-white/5 bg-white/60 dark:bg-black/40 backdrop-blur-md p-6 shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
               <div>
@@ -239,7 +225,7 @@ const PersonalPage = () => {
                   type="text"
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
-                  placeholder="Buscar por nombre, cargo o depto..."
+                  placeholder="Ej: Daniela Robles, Soporte..."
                   className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
                 />
               </div>
@@ -254,7 +240,7 @@ const PersonalPage = () => {
                   className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
                 >
                   <option value="">Todos los departamentos</option>
-                  {departamentosUnicos.map((dep) => (
+                  {departamentos.map((dep) => (
                     <option key={dep} value={dep}>
                       {dep}
                     </option>
@@ -268,9 +254,9 @@ const PersonalPage = () => {
                   className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 px-4 text-xs font-bold text-white shadow-md hover:bg-primary/90 transition-all cursor-pointer"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                   </svg>
-                  Registrar Personal
+                  Registrar Colaborador
                 </button>
               </div>
             </div>
@@ -283,19 +269,19 @@ const PersonalPage = () => {
                 <thead className="bg-black/5 dark:bg-white/5 border-b border-black/5 dark:border-white/10">
                   <tr>
                     <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-wider text-black dark:text-white">
-                      Colaborador
+                      Nombre Completo
                     </th>
                     <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-wider text-black dark:text-white">
                       Departamento
                     </th>
                     <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-wider text-black dark:text-white">
-                      Cargo
+                      Cargo / Puesto
                     </th>
                     <th className="px-6 py-4 text-center text-[10px] font-bold uppercase tracking-wider text-black dark:text-white">
                       Líneas Asignadas
                     </th>
-                    <th className="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-wider text-black dark:text-white">
-                      Costo Mensual Total
+                    <th className="px-6 py-4 text-center text-[10px] font-bold uppercase tracking-wider text-black dark:text-white">
+                      Estado
                     </th>
                     <th className="px-6 py-4 text-center text-[10px] font-bold uppercase tracking-wider text-black dark:text-white">
                       Acciones
@@ -303,54 +289,46 @@ const PersonalPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5 dark:divide-white/5">
-                  {personalFiltrado.length > 0 ? (
-                    personalFiltrado.map((p) => (
+                  {personalPaginado.length > 0 ? (
+                    personalPaginado.map((p) => (
                       <tr
                         key={p.id}
                         className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                       >
-                        <td className="px-6 py-4">
-                          <p className="font-bold text-black dark:text-white text-sm">{p.nombre}</p>
+                        <td className="px-6 py-4 font-bold text-black dark:text-white text-sm">
+                          {p.nombre}
                         </td>
-                        <td className="px-6 py-4 text-gray-700 dark:text-gray-300 font-semibold">
-                          <span className="inline-flex items-center rounded-lg bg-gray-100 dark:bg-gray-800 px-2.5 py-1 text-xs">
-                            {p.departamento}
-                          </span>
+                        <td className="px-6 py-4 font-semibold text-primary">
+                          {p.departamento}
                         </td>
-                        <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
+                        <td className="px-6 py-4 text-body-color dark:text-gray-300">
                           {p.cargo}
                         </td>
                         <td className="px-6 py-4 text-center">
                           <button
                             onClick={() => verLineasDePersonal(p)}
-                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
-                              Number(p.total_lineas) > 0
-                                ? "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30"
-                                : "bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200"
-                            }`}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary px-3 py-1 font-bold text-xs transition-colors cursor-pointer"
                             title="Ver líneas asignadas a este colaborador"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                             </svg>
-                            <span>{p.total_lineas || 0} {Number(p.total_lineas) === 1 ? "línea" : "líneas"}</span>
+                            {p.total_lineas || 0} línea(s)
                           </button>
                         </td>
-                        <td className="px-6 py-4 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-                          Bs. {parseFloat(String(p.costo_total_mensual || 0)).toFixed(2)}
+                        <td className="px-6 py-4 text-center">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold border ${
+                              p.estado === "ACTIVO"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/30 dark:text-emerald-400"
+                                : "bg-zinc-100 text-zinc-600 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-400"
+                            }`}
+                          >
+                            {p.estado}
+                          </span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => verLineasDePersonal(p)}
-                              className="group relative inline-flex items-center justify-center w-8 h-8 rounded-xl bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-all text-white shadow-sm hover:shadow-md cursor-pointer"
-                              title="Ver detalle de líneas"
-                            >
-                              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                              </svg>
-                            </button>
                             <button
                               onClick={() => abrirModalEdicion(p)}
                               className="group relative inline-flex items-center justify-center w-8 h-8 rounded-xl bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700 transition-all text-white shadow-sm hover:shadow-md cursor-pointer"
@@ -367,136 +345,116 @@ const PersonalPage = () => {
                   ) : (
                     <tr>
                       <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                        No se encontró personal registrado con los filtros indicados.
+                        No se encontraron colaboradores registrados con los filtros seleccionados.
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
+
+            {/* Paginación */}
+            <PaginationControl
+              pagination={pagination}
+              totalItems={totalFiltered}
+              itemName="colaboradores"
+            />
           </div>
         </div>
       </section>
 
-      {/* Modal Ver Líneas Asignadas al Colaborador */}
-      {modalLineasAbierto && personalSeleccionado && (
+      {/* Modal de Registro */}
+      <ModalCrearEditarPersonal
+        isOpen={modalRegistro.isOpen}
+        modoEdicion={false}
+        formData={datosRegistro}
+        setFormData={setDatosRegistro}
+        onSubmit={handleRegistroSubmit}
+        onClose={modalRegistro.close}
+      />
+
+      {/* Modal de Edición */}
+      <ModalCrearEditarPersonal
+        isOpen={modalEdicion.isOpen}
+        modoEdicion={true}
+        personalSeleccionado={modalEdicion.data}
+        formData={datosEdicion}
+        setFormData={setDatosEdicion}
+        onSubmit={handleEdicionSubmit}
+        onClose={modalEdicion.close}
+      />
+
+      {/* Modal de Líneas Asignadas */}
+      {modalLineas.isOpen && modalLineas.data && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
-          <div className="relative w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 shadow-2xl overflow-hidden my-auto animate-scaleIn">
-            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-6 py-4 shrink-0 bg-gray-50/50 dark:bg-white/5">
+          <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 shadow-2xl overflow-hidden my-auto animate-scaleIn">
+            <div className="shrink-0 px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-white/5 flex items-center justify-between">
               <div>
-                <h3 className="text-base font-bold text-black dark:text-white leading-tight">
-                  Líneas Asignadas a {personalSeleccionado.nombre}
+                <h3 className="text-base font-bold text-black dark:text-white">
+                  Líneas Asignadas a {modalLineas.data.nombre}
                 </h3>
                 <p className="text-xs text-body-color dark:text-gray-400 mt-0.5">
-                  {personalSeleccionado.cargo} • {personalSeleccionado.departamento}
+                  {modalLineas.data.cargo} • {modalLineas.data.departamento}
                 </p>
               </div>
               <button
-                onClick={cerrarModalLineas}
-                className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-gray-500 hover:text-black dark:hover:text-white transition-all cursor-pointer"
+                onClick={modalLineas.close}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
               >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                ✕
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-4 text-xs custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-6 space-y-3 custom-scrollbar">
               {cargandoLineas ? (
-                <div className="py-12 text-center text-primary font-bold">Cargando líneas del personal...</div>
-              ) : lineasDelPersonal.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                    <div className="rounded-xl border border-black/5 dark:border-white/5 bg-gray-50 dark:bg-gray-800/40 p-3">
-                      <p className="text-[10px] uppercase font-bold text-gray-500">Total Líneas</p>
-                      <p className="text-xl font-bold text-primary">{lineasDelPersonal.length}</p>
-                    </div>
-                    <div className="rounded-xl border border-black/5 dark:border-white/5 bg-gray-50 dark:bg-gray-800/40 p-3">
-                      <p className="text-[10px] uppercase font-bold text-gray-500">Líneas Activas</p>
-                      <p className="text-xl font-bold text-emerald-600">
-                        {lineasDelPersonal.filter((l) => l.estado === "ACTIVA").length}
-                      </p>
-                    </div>
-                    <div className="rounded-xl border border-black/5 dark:border-white/5 bg-gray-50 dark:bg-gray-800/40 p-3">
-                      <p className="text-[10px] uppercase font-bold text-gray-500">Costo Mensual Acumulado</p>
-                      <p className="text-xl font-bold text-emerald-600">
-                        Bs.{" "}
-                        {lineasDelPersonal
-                          .reduce(
-                            (acc, l) => (l.estado === "ACTIVA" ? acc + parseFloat(String(l.plan_costo || 0)) : acc),
-                            0
-                          )
-                          .toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
-                    <table className="w-full text-xs">
-                      <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                        <tr>
-                          <th className="px-4 py-3 text-left font-bold">Número</th>
-                          <th className="px-4 py-3 text-left font-bold">Telefonía</th>
-                          <th className="px-4 py-3 text-left font-bold">Plan</th>
-                          <th className="px-4 py-3 text-right font-bold">Costo</th>
-                          <th className="px-4 py-3 text-left font-bold">Equipo Celular</th>
-                          <th className="px-4 py-3 text-center font-bold">Estado</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                        {lineasDelPersonal.map((linea) => (
-                          <tr key={linea.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                            <td className="px-4 py-3 font-mono font-bold text-black dark:text-white text-sm">
-                              {linea.numero}
-                            </td>
-                            <td className="px-4 py-3 font-bold text-primary">
-                              {linea.telefonia_nombre}
-                            </td>
-                            <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                              {linea.plan_nombre}
-                            </td>
-                            <td className="px-4 py-3 text-right font-mono font-bold text-emerald-600">
-                              Bs. {parseFloat(String(linea.plan_costo || 0)).toFixed(2)}
-                            </td>
-                            <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                              {linea.celular_codigo ? (
-                                <span className="inline-flex items-center gap-1.5 font-bold text-black dark:text-white text-xs">
-                                  <span className="font-mono text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                                    {linea.celular_codigo}
-                                  </span>
-                                  {linea.celular_modelo || linea.celular_nombre}
-                                </span>
-                              ) : (
-                                <span className="text-gray-400 dark:text-gray-500 italic text-xs">Solo Chip</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <span
-                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold border ${getColorEstadoLinea(
-                                  linea.estado
-                                )}`}
-                              >
-                                {getNombreEstadoLinea(linea.estado)}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                <div className="py-8 text-center text-xs text-gray-500">
+                  Cargando líneas telefónicas asignadas...
                 </div>
+              ) : lineasDelPersonal.length > 0 ? (
+                lineasDelPersonal.map((l) => (
+                  <div
+                    key={l.id}
+                    className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-black/20"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm font-bold text-black dark:text-white">
+                          {l.numero}
+                        </span>
+                        <span className="inline-flex rounded bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                          {l.telefonia_nombre || "N/A"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-body-color dark:text-gray-400 mt-1">
+                        Plan: <strong className="text-black dark:text-white">{l.plan_nombre}</strong> (Bs. {parseFloat(String(l.plan_costo || 0)).toFixed(2)}/mes)
+                      </p>
+                      {l.celular_codigo && (
+                        <p className="text-xs text-primary font-medium mt-0.5">
+                          Equipo: [{l.celular_codigo}] {l.celular_modelo || l.celular_nombre}
+                        </p>
+                      )}
+                    </div>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold border ${getColorEstadoLinea(
+                        l.estado
+                      )}`}
+                    >
+                      {getNombreEstadoLinea(l.estado)}
+                    </span>
+                  </div>
+                ))
               ) : (
-                <div className="py-10 text-center text-gray-500">
-                  Este colaborador actualmente no tiene ninguna línea telefónica asignada.
+                <div className="py-8 text-center text-xs text-gray-500">
+                  Este colaborador no tiene líneas corporativas asignadas actualmente.
                 </div>
               )}
             </div>
 
-            <div className="flex justify-end px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-white/5 shrink-0">
+            <div className="shrink-0 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-white/5 flex items-center justify-end">
               <button
                 type="button"
-                onClick={cerrarModalLineas}
-                className="rounded-xl bg-primary px-5 py-2 text-xs font-bold text-white hover:bg-primary/90 transition-all cursor-pointer"
+                onClick={modalLineas.close}
+                className="rounded-xl border border-stroke dark:border-gray-800 bg-white dark:bg-gray-800 px-5 py-2.5 text-xs font-bold text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all cursor-pointer"
               >
                 Cerrar
               </button>
@@ -505,31 +463,12 @@ const PersonalPage = () => {
         </div>
       )}
 
-      {/* Modales Modularizados de Personal */}
-      <ModalCrearEditarPersonal
-        isOpen={modalRegistroAbierto}
-        modoEdicion={false}
-        formData={datosRegistro}
-        setFormData={setDatosRegistro}
-        onSubmit={handleRegistroSubmit}
-        onClose={cerrarModalRegistro}
-      />
-
-      <ModalCrearEditarPersonal
-        isOpen={modalEdicionAbierto}
-        modoEdicion={true}
-        personalSeleccionado={personalSeleccionado}
-        formData={datosEdicion}
-        setFormData={setDatosEdicion}
-        onSubmit={handleEdicionSubmit}
-        onClose={cerrarModalEdicion}
-      />
-
+      {/* Modal Informativo */}
       <InfoModal
-        isOpen={modalInfo}
-        onClose={() => setModalInfo(false)}
+        isOpen={modalInfo.isOpen}
+        onClose={modalInfo.close}
         title="Acción Restringida"
-        message="Para eliminar un personal primero debes reasignar o dar de baja las líneas asignadas."
+        message="Por motivos de auditoría, no se pueden eliminar registros de colaboradores con historial."
       />
     </>
   );

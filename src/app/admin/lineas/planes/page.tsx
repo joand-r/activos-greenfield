@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import Breadcrumb from "@/components/ui/Common/Breadcrumb";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useLoading } from "@/contexts/LoadingContext";
 import {
   lineaService,
@@ -14,6 +14,8 @@ import {
 import InfoModal from "@/components/ui/InfoModal";
 import { useToast } from "@/contexts/ToastContext";
 import { ModalCrearEditarPlan } from "@/components/modals";
+import { useModalState, useDataTable } from "@/hooks";
+import { PaginationControl } from "@/components/ui/PaginationControl";
 
 const PlanesTelefoniaPage = () => {
   const { showLoading, hideLoading } = useLoading();
@@ -21,16 +23,14 @@ const PlanesTelefoniaPage = () => {
 
   const [planes, setPlanes] = useState<PlanTelefonia[]>([]);
   const [telefonias, setTelefonias] = useState<Telefonia[]>([]);
-  const [busqueda, setBusqueda] = useState("");
   const [filtroTelefonia, setFiltroTelefonia] = useState<number | "">("");
   const [filtroEstado, setFiltroEstado] = useState<EstadoPlan | "">("");
   const [error, setError] = useState("");
 
   // Modales
-  const [modalEdicionAbierto, setModalEdicionAbierto] = useState(false);
-  const [modalRegistroAbierto, setModalRegistroAbierto] = useState(false);
-  const [planSeleccionado, setPlanSeleccionado] = useState<PlanTelefonia | null>(null);
-  const [modalInfo, setModalInfo] = useState(false);
+  const modalEdicion = useModalState<PlanTelefonia>();
+  const modalRegistro = useModalState();
+  const modalInfo = useModalState();
 
   // Estados de formularios
   const [datosEdicion, setDatosEdicion] = useState<{
@@ -59,6 +59,24 @@ const PlanesTelefoniaPage = () => {
     costo: "",
     estado: "DISPONIBLE",
     descripcion: "",
+  });
+
+  // Hook DataTable para búsqueda con debounce, filtrado y paginación
+  const {
+    searchTerm: busqueda,
+    setSearchTerm: setBusqueda,
+    paginatedData: planesPaginados,
+    totalFiltered,
+    pagination,
+  } = useDataTable<PlanTelefonia>({
+    data: planes,
+    searchFields: ["nombre", "telefonia_nombre", "descripcion"],
+    pageSize: 10,
+    filterFn: (plan) => {
+      if (filtroTelefonia && plan.telefonia_id !== Number(filtroTelefonia)) return false;
+      if (filtroEstado && plan.estado !== filtroEstado) return false;
+      return true;
+    },
   });
 
   useEffect(() => {
@@ -91,15 +109,10 @@ const PlanesTelefoniaPage = () => {
       estado: "DISPONIBLE",
       descripcion: "",
     });
-    setModalRegistroAbierto(true);
-  };
-
-  const cerrarModalRegistro = () => {
-    setModalRegistroAbierto(false);
+    modalRegistro.open();
   };
 
   const abrirModalEdicion = (plan: PlanTelefonia) => {
-    setPlanSeleccionado(plan);
     setDatosEdicion({
       telefonia_id: String(plan.telefonia_id),
       nombre: plan.nombre,
@@ -107,12 +120,7 @@ const PlanesTelefoniaPage = () => {
       estado: plan.estado,
       descripcion: plan.descripcion || "",
     });
-    setModalEdicionAbierto(true);
-  };
-
-  const cerrarModalEdicion = () => {
-    setModalEdicionAbierto(false);
-    setPlanSeleccionado(null);
+    modalEdicion.open(plan);
   };
 
   const handleRegistroSubmit = async (e: React.FormEvent) => {
@@ -132,7 +140,7 @@ const PlanesTelefoniaPage = () => {
         descripcion: datosRegistro.descripcion.trim() || undefined,
       });
       toast.success("Plan registrado", "El plan ha sido creado exitosamente");
-      cerrarModalRegistro();
+      modalRegistro.close();
       cargarDatos();
     } catch (err: any) {
       toast.error("Error al crear plan", err.message || "No se pudo crear el plan");
@@ -143,7 +151,7 @@ const PlanesTelefoniaPage = () => {
 
   const handleEdicionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!planSeleccionado) return;
+    if (!modalEdicion.data) return;
     if (!datosEdicion.nombre.trim() || !datosEdicion.costo) {
       toast.error("Campos requeridos", "El nombre y costo son obligatorios");
       return;
@@ -151,7 +159,7 @@ const PlanesTelefoniaPage = () => {
 
     showLoading();
     try {
-      await lineaService.updatePlan(planSeleccionado.id, {
+      await lineaService.updatePlan(modalEdicion.data.id, {
         telefonia_id: datosEdicion.telefonia_id ? parseInt(datosEdicion.telefonia_id) : undefined,
         nombre: datosEdicion.nombre.trim(),
         costo: parseFloat(datosEdicion.costo),
@@ -159,7 +167,7 @@ const PlanesTelefoniaPage = () => {
         descripcion: datosEdicion.descripcion.trim() || undefined,
       });
       toast.success("Plan actualizado", "Los cambios han sido guardados exitosamente");
-      cerrarModalEdicion();
+      modalEdicion.close();
       cargarDatos();
     } catch (err: any) {
       toast.error("Error al actualizar", err.message || "No se pudo actualizar el plan");
@@ -167,21 +175,6 @@ const PlanesTelefoniaPage = () => {
       hideLoading();
     }
   };
-
-  const planesFiltrados = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
-    const telId = filtroTelefonia ? Number(filtroTelefonia) : null;
-
-    return (planes || []).filter((p) => {
-      const cumpleBusqueda =
-        !q ||
-        p.nombre?.toLowerCase().includes(q) ||
-        p.telefonia_nombre?.toLowerCase().includes(q);
-      const cumpleTelefonia = !telId || p.telefonia_id === telId;
-      const cumpleEstado = !filtroEstado || p.estado === filtroEstado;
-      return cumpleBusqueda && cumpleTelefonia && cumpleEstado;
-    });
-  }, [planes, busqueda, filtroTelefonia, filtroEstado]);
 
   return (
     <>
@@ -314,8 +307,8 @@ const PlanesTelefoniaPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5 dark:divide-white/5">
-                  {planesFiltrados.length > 0 ? (
-                    planesFiltrados.map((plan) => (
+                  {planesPaginados.length > 0 ? (
+                    planesPaginados.map((plan) => (
                       <tr
                         key={plan.id}
                         className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
@@ -373,35 +366,42 @@ const PlanesTelefoniaPage = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Paginación */}
+            <PaginationControl
+              pagination={pagination}
+              totalItems={totalFiltered}
+              itemName="planes"
+            />
           </div>
         </div>
       </section>
 
       {/* Modales Modularizados de Plan */}
       <ModalCrearEditarPlan
-        isOpen={modalRegistroAbierto}
+        isOpen={modalRegistro.isOpen}
         modoEdicion={false}
         telefonias={telefonias}
         formData={datosRegistro}
         setFormData={setDatosRegistro}
         onSubmit={handleRegistroSubmit}
-        onClose={cerrarModalRegistro}
+        onClose={modalRegistro.close}
       />
 
       <ModalCrearEditarPlan
-        isOpen={modalEdicionAbierto}
+        isOpen={modalEdicion.isOpen}
         modoEdicion={true}
-        planSeleccionado={planSeleccionado}
+        planSeleccionado={modalEdicion.data}
         telefonias={telefonias}
         formData={datosEdicion}
         setFormData={setDatosEdicion}
         onSubmit={handleEdicionSubmit}
-        onClose={cerrarModalEdicion}
+        onClose={modalEdicion.close}
       />
 
       <InfoModal
-        isOpen={modalInfo}
-        onClose={() => setModalInfo(false)}
+        isOpen={modalInfo.isOpen}
+        onClose={modalInfo.close}
         title="Acción Restringida"
         message="Para eliminar un plan no debe tener líneas telefónicas asignadas."
       />

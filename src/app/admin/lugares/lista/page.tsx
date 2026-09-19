@@ -7,33 +7,33 @@ import { lugarService, Lugar, TipoLugar } from "@/services/lugar.service";
 import InfoModal from "@/components/ui/InfoModal";
 import { useToast } from "@/contexts/ToastContext";
 import { ModalCrearEditarLugar } from "@/components/modals/catalogos/ModalCrearEditarLugar";
+import { useModalState, useDataTable } from "@/hooks";
+import { PaginationControl } from "@/components/ui/PaginationControl";
 
 const ListaLugaresPage = () => {
   const { showLoading, hideLoading } = useLoading();
   const toast = useToast();
-  
+
   const [lugares, setLugares] = useState<Lugar[]>([]);
   const [filtroTipo, setFiltroTipo] = useState("");
-  const [busqueda, setBusqueda] = useState("");
   const [error, setError] = useState("");
-  
-  // Modales
-  const [modalEdicionAbierto, setModalEdicionAbierto] = useState(false);
-  const [modalRegistroAbierto, setModalRegistroAbierto] = useState(false);
-  const [lugarSeleccionado, setLugarSeleccionado] = useState<Lugar | null>(null);
-  const [modalInfo, setModalInfo] = useState(false);
+
+  // Modales gestionados con useModalState
+  const modalEdicion = useModalState<Lugar>();
+  const modalRegistro = useModalState();
+  const modalInfo = useModalState();
 
   // Estados de formulario
   const [datosEdicion, setDatosEdicion] = useState({
     nombre: "",
     inicial: "",
-    tipo: "" as TipoLugar | ""
+    tipo: "" as TipoLugar | "",
   });
 
   const [datosRegistro, setDatosRegistro] = useState({
     nombre: "",
     inicial: "",
-    tipo: "" as TipoLugar | ""
+    tipo: "" as TipoLugar | "",
   });
 
   const tiposLugar: { id: TipoLugar; nombre: string }[] = [
@@ -43,6 +43,23 @@ const ListaLugaresPage = () => {
     { id: "CENTER", nombre: "Center" },
     { id: "PROPIEDAD", nombre: "Propiedad" },
   ];
+
+  // Hook DataTable para búsqueda con debounce, filtrado y paginación
+  const {
+    searchTerm: busqueda,
+    setSearchTerm: setBusqueda,
+    paginatedData: lugaresPaginados,
+    totalFiltered,
+    pagination,
+  } = useDataTable<Lugar>({
+    data: lugares,
+    searchFields: ["nombre", "inicial"],
+    pageSize: 10,
+    filterFn: (lugar) => {
+      if (filtroTipo && lugar.tipo !== filtroTipo) return false;
+      return true;
+    },
+  });
 
   useEffect(() => {
     document.title = "Lista de Lugares | Activos Greenfield";
@@ -54,77 +71,61 @@ const ListaLugaresPage = () => {
     try {
       const data = await lugarService.getAll();
       setLugares(data || []);
-    } catch (error: any) {
-      console.error("Error al cargar lugares:", error);
-      setError(error.message || "Error al cargar los lugares");
+    } catch (err: any) {
+      console.error("Error al cargar lugares:", err);
+      setError(err.message || "Error al cargar los lugares");
       setLugares([]);
     } finally {
       hideLoading();
     }
   };
 
-  const intentarEliminar = () => {
-    setModalInfo(true);
-  };
-
   // Controladores de Edición
   const abrirModalEdicion = (lugar: Lugar) => {
-    setLugarSeleccionado(lugar);
     setDatosEdicion({
       nombre: lugar.nombre,
       inicial: lugar.inicial,
-      tipo: lugar.tipo as TipoLugar
+      tipo: lugar.tipo as TipoLugar,
     });
-    setModalEdicionAbierto(true);
-  };
-
-  const cerrarModalEdicion = () => {
-    setModalEdicionAbierto(false);
-    setLugarSeleccionado(null);
-    setDatosEdicion({ nombre: "", inicial: "", tipo: "" });
+    modalEdicion.open(lugar);
   };
 
   const guardarCambios = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!lugarSeleccionado) return;
+    if (!modalEdicion.data) return;
 
     if (datosEdicion.inicial.length !== 3) {
       toast.error("Error", "Las iniciales deben tener exactamente 3 caracteres");
       return;
     }
-    
+
     showLoading();
     try {
-      await lugarService.update(lugarSeleccionado.id, {
+      await lugarService.update(modalEdicion.data.id, {
         nombre: datosEdicion.nombre,
         inicial: datosEdicion.inicial.toUpperCase(),
-        tipo: datosEdicion.tipo as TipoLugar
+        tipo: datosEdicion.tipo as TipoLugar,
       });
       await cargarLugares();
-      cerrarModalEdicion();
-      hideLoading();
+      modalEdicion.close();
       toast.success("Actualización Exitosa", "Lugar actualizado correctamente");
-    } catch (error: any) {
-      console.error("Error al actualizar:", error);
+    } catch (err: any) {
+      console.error("Error al actualizar:", err);
+      toast.error("Error al actualizar", err.message || "No se pudo actualizar el lugar");
+    } finally {
       hideLoading();
-      toast.error("Error al actualizar", error.message || "No se pudo actualizar el lugar");
     }
   };
 
   // Controladores de Registro
   const abrirModalRegistro = () => {
     setDatosRegistro({ nombre: "", inicial: "", tipo: "" });
-    setModalRegistroAbierto(true);
-  };
-
-  const cerrarModalRegistro = () => {
-    setModalRegistroAbierto(false);
-    setDatosRegistro({ nombre: "", inicial: "", tipo: "" });
+    modalRegistro.open();
   };
 
   const registrarLugar = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (datosRegistro.inicial.length !== 3) {
       toast.error("Error", "Las iniciales deben tener exactamente 3 caracteres");
       return;
@@ -135,26 +136,18 @@ const ListaLugaresPage = () => {
       await lugarService.create({
         nombre: datosRegistro.nombre,
         inicial: datosRegistro.inicial.toUpperCase(),
-        tipo: datosRegistro.tipo as TipoLugar
+        tipo: datosRegistro.tipo as TipoLugar,
       });
       await cargarLugares();
-      cerrarModalRegistro();
-      hideLoading();
+      modalRegistro.close();
       toast.success("Registro Exitoso", "Lugar registrado correctamente");
-    } catch (error: any) {
-      console.error("Error al registrar lugar:", error);
+    } catch (err: any) {
+      console.error("Error al registrar lugar:", err);
+      toast.error("Error al registrar", err.message || "No se pudo registrar el lugar");
+    } finally {
       hideLoading();
-      toast.error("Error al registrar", error.message || "No se pudo registrar el lugar");
     }
   };
-
-  const lugaresFiltrados = (lugares || []).filter((lugar) => {
-    const cumpleBusqueda =
-      lugar?.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
-      lugar?.inicial?.toLowerCase().includes(busqueda.toLowerCase());
-    const cumpleTipo = filtroTipo === "" || lugar?.tipo === filtroTipo;
-    return cumpleBusqueda && cumpleTipo;
-  });
 
   return (
     <>
@@ -235,93 +228,99 @@ const ListaLugaresPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5 dark:divide-white/5">
-                  {lugaresFiltrados.map((lugar) => (
-                    <tr
-                      key={lugar.id}
-                      className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                    >
-                      <td className="px-6 py-4 font-mono font-medium text-gray-700 dark:text-gray-300">
-                        #{lugar.id}
-                      </td>
-                      <td className="px-6 py-4 font-semibold text-black dark:text-white">
-                        {lugar.nombre}
-                      </td>
-                      <td className="px-6 py-4 font-mono font-bold text-primary">
-                        {lugar.inicial}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center rounded-xl bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary">
-                          {tiposLugar.find((t) => t.id === lugar.tipo)?.nombre || lugar.tipo}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-center gap-3">
-                          <button
-                            onClick={() => abrirModalEdicion(lugar)}
-                            className="group relative inline-flex items-center justify-center w-8 h-8 rounded-xl bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700 transition-all text-white shadow-sm hover:shadow-md cursor-pointer"
-                            title="Editar Lugar"
-                          >
-                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={intentarEliminar}
-                            className="group relative inline-flex items-center justify-center w-8 h-8 rounded-xl bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 transition-all text-white shadow-sm hover:shadow-md cursor-pointer"
-                            title="Eliminar Lugar"
-                          >
-                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
+                  {lugaresPaginados.length > 0 ? (
+                    lugaresPaginados.map((lugar) => (
+                      <tr
+                        key={lugar.id}
+                        className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                      >
+                        <td className="px-6 py-4 font-mono font-medium text-gray-700 dark:text-gray-300">
+                          #{lugar.id}
+                        </td>
+                        <td className="px-6 py-4 font-semibold text-black dark:text-white">
+                          {lugar.nombre}
+                        </td>
+                        <td className="px-6 py-4 font-mono font-bold text-primary">
+                          {lugar.inicial}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex rounded-lg bg-black/5 dark:bg-white/5 px-2.5 py-1 text-[11px] font-bold text-black dark:text-white">
+                            {lugar.tipo}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => abrirModalEdicion(lugar)}
+                              className="w-7 h-7 rounded-lg bg-amber-500 hover:bg-amber-600 text-white inline-flex items-center justify-center shadow-sm cursor-pointer transition-colors"
+                              title="Editar"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => modalInfo.open()}
+                              className="w-7 h-7 rounded-lg bg-rose-500 hover:bg-rose-600 text-white inline-flex items-center justify-center shadow-sm cursor-pointer transition-colors"
+                              title="Eliminar"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                        No se encontraron lugares con los filtros actuales.
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
 
-            {lugaresFiltrados.length === 0 && (
-              <div className="p-8 text-center text-gray-600 dark:text-gray-400">
-                No se encontraron lugares registrados con los filtros aplicados.
-              </div>
-            )}
+            {/* Paginación */}
+            <PaginationControl
+              pagination={pagination}
+              totalItems={totalFiltered}
+              itemName="lugares"
+            />
           </div>
         </div>
       </section>
 
       {/* Modal de Registro */}
       <ModalCrearEditarLugar
-        isOpen={modalRegistroAbierto}
+        isOpen={modalRegistro.isOpen}
         modoEdicion={false}
+        tiposLugar={tiposLugar}
         formData={datosRegistro}
         setFormData={setDatosRegistro}
-        tiposLugar={tiposLugar}
         onSubmit={registrarLugar}
-        onClose={cerrarModalRegistro}
+        onClose={modalRegistro.close}
       />
 
       {/* Modal de Edición */}
       <ModalCrearEditarLugar
-        isOpen={modalEdicionAbierto}
+        isOpen={modalEdicion.isOpen}
         modoEdicion={true}
-        lugar={lugarSeleccionado}
+        tiposLugar={tiposLugar}
         formData={datosEdicion}
         setFormData={setDatosEdicion}
-        tiposLugar={tiposLugar}
         onSubmit={guardarCambios}
-        onClose={cerrarModalEdicion}
+        onClose={modalEdicion.close}
       />
 
-      {/* Modal Informativo sobre Eliminación */}
+      {/* Modal Informativo */}
       <InfoModal
-        isOpen={modalInfo}
-        title="Política de Auditoría"
-        message="Los lugares registrados no pueden ser eliminados del sistema debido a requisitos de auditoría y trazabilidad de la empresa. Todos los registros deben mantenerse para cumplir con las normativas internas y garantizar la transparencia en la gestión de datos."
-        confirmText="Entendido"
-        icon="shield"
-        onClose={() => setModalInfo(false)}
+        isOpen={modalInfo.isOpen}
+        onClose={modalInfo.close}
+        title="Acción no permitida"
+        message="Por motivos de auditoría y consistencia en el historial de activos, los lugares no pueden ser eliminados."
       />
     </>
   );

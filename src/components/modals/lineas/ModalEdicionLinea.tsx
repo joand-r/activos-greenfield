@@ -1,16 +1,29 @@
 "use client";
 
 import React from "react";
-import { Linea, CelularLinea, Personal } from "@/services/linea.service";
+import { Linea, CelularLinea, Personal, PlanTelefonia } from "@/services/linea.service";
 
 interface ModalEdicionLineaProps {
   isOpen: boolean;
   linea: Linea | null;
   celulares: CelularLinea[];
   personalList: Personal[];
-  editData: { numero: string; activo_id: string; personal_id: string; observaciones: string };
+  planes?: PlanTelefonia[];
+  editData: {
+    numero: string;
+    activo_id: string;
+    personal_id: string;
+    plan_id?: string;
+    observaciones: string;
+  };
   setEditData: React.Dispatch<
-    React.SetStateAction<{ numero: string; activo_id: string; personal_id: string; observaciones: string }>
+    React.SetStateAction<{
+      numero: string;
+      activo_id: string;
+      personal_id: string;
+      plan_id?: string;
+      observaciones: string;
+    }>
   >;
   onSubmit: (e: React.FormEvent) => Promise<void>;
   onClose: () => void;
@@ -21,6 +34,7 @@ export const ModalEdicionLinea: React.FC<ModalEdicionLineaProps> = ({
   linea,
   celulares,
   personalList,
+  planes = [],
   editData,
   setEditData,
   onSubmit,
@@ -33,13 +47,20 @@ export const ModalEdicionLinea: React.FC<ModalEdicionLineaProps> = ({
       <div className="w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl bg-white dark:bg-gray-dark border border-black/10 dark:border-white/10 shadow-2xl overflow-hidden my-auto animate-scaleIn">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-6 py-4 shrink-0 bg-gray-50/50 dark:bg-white/5">
-          <div>
-            <h3 className="text-base font-bold text-black dark:text-white leading-tight">
-              Editar Línea #{linea.numero}
-            </h3>
-            <p className="text-xs text-body-color dark:text-gray-400 mt-0.5">
-              Corrige número, colaborador responsable o equipo vinculado
-            </p>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-black dark:text-white leading-tight">
+                Editar Línea #{linea.numero}
+              </h3>
+              <p className="text-xs text-body-color dark:text-gray-400 mt-0.5">
+                Corrige número, plan, colaborador responsable o equipo vinculado
+              </p>
+            </div>
           </div>
           <button
             type="button"
@@ -70,6 +91,28 @@ export const ModalEdicionLinea: React.FC<ModalEdicionLineaProps> = ({
                 className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary font-mono"
               />
             </div>
+
+            {/* Plan de Telefonía */}
+            {planes.length > 0 && (
+              <div>
+                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
+                  Plan de Telefonía
+                </label>
+                <select
+                  value={editData.plan_id || String(linea.plan_id)}
+                  onChange={(e) =>
+                    setEditData((prev) => ({ ...prev, plan_id: e.target.value }))
+                  }
+                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
+                >
+                  {planes.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre} — Bs. {parseFloat(String(p.costo || 0)).toFixed(2)}/mes {p.telefonia_nombre ? `(${p.telefonia_nombre})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Colaborador / Personal Asignado */}
             <div>
@@ -107,7 +150,7 @@ export const ModalEdicionLinea: React.FC<ModalEdicionLineaProps> = ({
                 }
                 className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
               >
-                <option value="">-- Sin Celular (Solo Chip) --</option>
+                <option value="">-- Sin Celular (Solo Chip / Desvincular) --</option>
                 {celulares.map((cel) => {
                   const isAsignadoAEstaLinea = String(linea.activo_id) === String(cel.id);
                   const isBaja = cel.estado_operativo === "BAJA" || cel.estado_operativo === "DESHABILITADO";
@@ -181,7 +224,7 @@ export const ModalEdicionLinea: React.FC<ModalEdicionLineaProps> = ({
             </button>
             <button
               type="submit"
-              className="rounded-xl bg-primary px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-primary/90 transition-all cursor-pointer shadow-primary/15"
+              className="rounded-xl bg-amber-500 hover:bg-amber-600 px-5 py-2 text-xs font-bold text-white shadow-md transition-all cursor-pointer shadow-amber-500/20"
             >
               Guardar Cambios
             </button>

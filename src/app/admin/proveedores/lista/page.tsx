@@ -7,30 +7,43 @@ import { proveedorService, Proveedor } from "@/services/proveedor.service";
 import InfoModal from "@/components/ui/InfoModal";
 import { useToast } from "@/contexts/ToastContext";
 import { ModalCrearEditarProveedor } from "@/components/modals/catalogos/ModalCrearEditarProveedor";
+import { useModalState, useDataTable } from "@/hooks";
+import { PaginationControl } from "@/components/ui/PaginationControl";
 
 const ListaProveedoresPage = () => {
   const { showLoading, hideLoading } = useLoading();
   const toast = useToast();
-  
+
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
-  const [busqueda, setBusqueda] = useState("");
   const [error, setError] = useState("");
-  
-  // Modales
-  const [modalEdicionAbierto, setModalEdicionAbierto] = useState(false);
-  const [modalRegistroAbierto, setModalRegistroAbierto] = useState(false);
-  const [proveedorSeleccionado, setProveedorSeleccionado] = useState<Proveedor | null>(null);
-  const [modalInfo, setModalInfo] = useState(false);
+
+  // Modales gestionados con useModalState
+  const modalEdicion = useModalState<Proveedor>();
+  const modalRegistro = useModalState();
+  const modalInfo = useModalState();
 
   // Estados de formulario
   const [datosEdicion, setDatosEdicion] = useState({
     nombre: "",
-    nit: ""
+    nit: "",
   });
 
   const [datosRegistro, setDatosRegistro] = useState({
     nombre: "",
-    nit: ""
+    nit: "",
+  });
+
+  // Hook DataTable para búsqueda con debounce y paginación
+  const {
+    searchTerm: busqueda,
+    setSearchTerm: setBusqueda,
+    paginatedData: proveedoresPaginados,
+    totalFiltered,
+    pagination,
+  } = useDataTable<Proveedor>({
+    data: proveedores,
+    searchFields: ["nombre", "nit"],
+    pageSize: 10,
   });
 
   useEffect(() => {
@@ -43,72 +56,56 @@ const ListaProveedoresPage = () => {
     try {
       const data = await proveedorService.getAll();
       setProveedores(data || []);
-    } catch (error: any) {
-      console.error("Error al cargar proveedores:", error);
-      setError(error.message || "Error al cargar los proveedores");
+    } catch (err: any) {
+      console.error("Error al cargar proveedores:", err);
+      setError(err.message || "Error al cargar los proveedores");
       setProveedores([]);
     } finally {
       hideLoading();
     }
   };
 
-  const intentarEliminar = () => {
-    setModalInfo(true);
-  };
-
   // Controladores de Edición
   const abrirModalEdicion = (proveedor: Proveedor) => {
-    setProveedorSeleccionado(proveedor);
     setDatosEdicion({
       nombre: proveedor.nombre,
-      nit: proveedor.nit
+      nit: proveedor.nit,
     });
-    setModalEdicionAbierto(true);
-  };
-
-  const cerrarModalEdicion = () => {
-    setModalEdicionAbierto(false);
-    setProveedorSeleccionado(null);
-    setDatosEdicion({ nombre: "", nit: "" });
+    modalEdicion.open(proveedor);
   };
 
   const guardarCambios = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!proveedorSeleccionado) return;
+    if (!modalEdicion.data) return;
 
     if (!datosEdicion.nombre.trim() || !datosEdicion.nit.trim()) {
       toast.error("Error", "Todos los campos son obligatorios");
       return;
     }
-    
+
     showLoading();
     try {
-      await proveedorService.update(proveedorSeleccionado.id, datosEdicion);
+      await proveedorService.update(modalEdicion.data.id, datosEdicion);
       await cargarProveedores();
-      cerrarModalEdicion();
-      hideLoading();
+      modalEdicion.close();
       toast.success("Actualización Exitosa", "Proveedor actualizado correctamente");
-    } catch (error: any) {
-      console.error("Error al actualizar:", error);
+    } catch (err: any) {
+      console.error("Error al actualizar:", err);
+      toast.error("Error al actualizar", err.message || "No se pudo actualizar el proveedor");
+    } finally {
       hideLoading();
-      toast.error("Error al actualizar", error.message || "No se pudo actualizar el proveedor");
     }
   };
 
   // Controladores de Registro
   const abrirModalRegistro = () => {
     setDatosRegistro({ nombre: "", nit: "" });
-    setModalRegistroAbierto(true);
-  };
-
-  const cerrarModalRegistro = () => {
-    setModalRegistroAbierto(false);
-    setDatosRegistro({ nombre: "", nit: "" });
+    modalRegistro.open();
   };
 
   const registrarProveedor = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!datosRegistro.nombre.trim() || !datosRegistro.nit.trim()) {
       toast.error("Error", "Todos los campos son obligatorios");
       return;
@@ -118,20 +115,15 @@ const ListaProveedoresPage = () => {
     try {
       await proveedorService.create(datosRegistro);
       await cargarProveedores();
-      cerrarModalRegistro();
-      hideLoading();
+      modalRegistro.close();
       toast.success("Registro Exitoso", "Proveedor registrado correctamente");
-    } catch (error: any) {
-      console.error("Error al registrar proveedor:", error);
+    } catch (err: any) {
+      console.error("Error al registrar proveedor:", err);
+      toast.error("Error al registrar", err.message || "No se pudo registrar el proveedor");
+    } finally {
       hideLoading();
-      toast.error("Error al registrar", error.message || "No se pudo registrar el proveedor");
     }
   };
-
-  const proveedoresFiltrados = (proveedores || []).filter((prov) =>
-    prov?.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
-    prov?.nit?.toLowerCase().includes(busqueda.toLowerCase())
-  );
 
   return (
     <>
@@ -148,7 +140,7 @@ const ListaProveedoresPage = () => {
             </div>
           )}
 
-          {/* Barra de Acciones */}
+          {/* Barra de Acciones y Filtros */}
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div className="w-full sm:w-72">
               <input
@@ -181,10 +173,10 @@ const ListaProveedoresPage = () => {
                       ID
                     </th>
                     <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-wider text-black dark:text-white">
-                      Nombre / Razón Social
+                      Nombre
                     </th>
                     <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-wider text-black dark:text-white">
-                      NIT / Documento
+                      NIT
                     </th>
                     <th className="px-6 py-4 text-center text-[10px] font-bold uppercase tracking-wider text-black dark:text-white">
                       Acciones
@@ -192,86 +184,92 @@ const ListaProveedoresPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5 dark:divide-white/5">
-                  {proveedoresFiltrados.map((prov) => (
-                    <tr
-                      key={prov.id}
-                      className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                    >
-                      <td className="px-6 py-4 font-mono font-medium text-gray-700 dark:text-gray-300">
-                        #{prov.id}
-                      </td>
-                      <td className="px-6 py-4 font-semibold text-black dark:text-white">
-                        {prov.nombre}
-                      </td>
-                      <td className="px-6 py-4 font-mono font-bold text-gray-700 dark:text-gray-300">
-                        {prov.nit}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-center gap-3">
-                          <button
-                            onClick={() => abrirModalEdicion(prov)}
-                            className="group relative inline-flex items-center justify-center w-8 h-8 rounded-xl bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700 transition-all text-white shadow-sm hover:shadow-md cursor-pointer"
-                            title="Editar Proveedor"
-                          >
-                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={intentarEliminar}
-                            className="group relative inline-flex items-center justify-center w-8 h-8 rounded-xl bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 transition-all text-white shadow-sm hover:shadow-md cursor-pointer"
-                            title="Eliminar Proveedor"
-                          >
-                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
+                  {proveedoresPaginados.length > 0 ? (
+                    proveedoresPaginados.map((proveedor) => (
+                      <tr
+                        key={proveedor.id}
+                        className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                      >
+                        <td className="px-6 py-4 font-mono font-medium text-gray-700 dark:text-gray-300">
+                          #{proveedor.id}
+                        </td>
+                        <td className="px-6 py-4 font-semibold text-black dark:text-white">
+                          {proveedor.nombre}
+                        </td>
+                        <td className="px-6 py-4 font-mono font-bold text-primary">
+                          {proveedor.nit}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => abrirModalEdicion(proveedor)}
+                              className="w-7 h-7 rounded-lg bg-amber-500 hover:bg-amber-600 text-white inline-flex items-center justify-center shadow-sm cursor-pointer transition-colors"
+                              title="Editar"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => modalInfo.open()}
+                              className="w-7 h-7 rounded-lg bg-rose-500 hover:bg-rose-600 text-white inline-flex items-center justify-center shadow-sm cursor-pointer transition-colors"
+                              title="Eliminar"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                        No se encontraron proveedores con los filtros actuales.
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
 
-            {proveedoresFiltrados.length === 0 && (
-              <div className="p-8 text-center text-gray-600 dark:text-gray-400">
-                No se encontraron proveedores registrados con los filtros aplicados.
-              </div>
-            )}
+            {/* Paginación */}
+            <PaginationControl
+              pagination={pagination}
+              totalItems={totalFiltered}
+              itemName="proveedores"
+            />
           </div>
         </div>
       </section>
 
       {/* Modal de Registro */}
       <ModalCrearEditarProveedor
-        isOpen={modalRegistroAbierto}
+        isOpen={modalRegistro.isOpen}
         modoEdicion={false}
         formData={datosRegistro}
         setFormData={setDatosRegistro}
         onSubmit={registrarProveedor}
-        onClose={cerrarModalRegistro}
+        onClose={modalRegistro.close}
       />
 
       {/* Modal de Edición */}
       <ModalCrearEditarProveedor
-        isOpen={modalEdicionAbierto}
+        isOpen={modalEdicion.isOpen}
         modoEdicion={true}
-        proveedor={proveedorSeleccionado}
         formData={datosEdicion}
         setFormData={setDatosEdicion}
         onSubmit={guardarCambios}
-        onClose={cerrarModalEdicion}
+        onClose={modalEdicion.close}
       />
 
-      {/* Modal Informativo sobre Eliminación */}
+      {/* Modal Informativo */}
       <InfoModal
-        isOpen={modalInfo}
-        title="Política de Auditoría"
-        message="Los proveedores registrados no pueden ser eliminados del sistema debido a requisitos de auditoría y trazabilidad de la empresa. Todos los registros deben mantenerse para cumplir con las normativas internas y garantizar la transparencia en la gestión de datos."
-        confirmText="Entendido"
-        icon="shield"
-        onClose={() => setModalInfo(false)}
+        isOpen={modalInfo.isOpen}
+        onClose={modalInfo.close}
+        title="Acción no permitida"
+        message="Por motivos de auditoría y consistencia en el historial de activos, los proveedores no pueden ser eliminados."
       />
     </>
   );

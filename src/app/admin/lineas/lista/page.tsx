@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Breadcrumb from "@/components/ui/Common/Breadcrumb";
 import { useState, useEffect, useMemo } from "react";
@@ -96,6 +96,7 @@ const ListaLineasPage = () => {
     numero: "",
     activo_id: "",
     personal_id: "",
+    plan_id: "",
     observaciones: "",
   });
 
@@ -336,6 +337,7 @@ const ListaLineasPage = () => {
       numero: l.numero,
       activo_id: l.activo_id ? String(l.activo_id) : "",
       personal_id: l.personal_id ? String(l.personal_id) : "",
+      plan_id: l.plan_id ? String(l.plan_id) : "",
       observaciones: l.observaciones || "",
     });
     setModalEdicion(true);
@@ -354,6 +356,7 @@ const ListaLineasPage = () => {
         numero: edicionData.numero.trim(),
         activo_id: edicionData.activo_id ? parseInt(edicionData.activo_id) : null,
         personal_id: edicionData.personal_id ? parseInt(edicionData.personal_id) : null,
+        plan_id: edicionData.plan_id ? parseInt(edicionData.plan_id) : undefined,
         observaciones: edicionData.observaciones.trim() || undefined,
       });
 
@@ -622,6 +625,7 @@ const ListaLineasPage = () => {
         linea={lineaSeleccionada}
         celulares={celulares}
         personalList={personalList}
+        planes={planes}
         editData={edicionData}
         setEditData={setEdicionData}
         onSubmit={handleEdicionSubmit}
