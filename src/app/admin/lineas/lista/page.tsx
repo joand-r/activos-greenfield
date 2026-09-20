@@ -546,7 +546,7 @@ const ListaLineasPage = () => {
             telefonias={telefonias}
             filtroEstado={filtroEstado}
             onEstadoChange={setFiltroEstado}
-            onPrint={() => generarReporteLineas(lineas)}
+            onPrint={() => generarReporteLineas(lineasFiltradas)}
           />
 
           {/* Tabla de Líneas */}

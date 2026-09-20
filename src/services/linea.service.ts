@@ -62,6 +62,8 @@ export interface Linea {
   celular_marca?: string;
   celular_imei_1?: string;
   celular_imei_2?: string;
+  celular_imei_asignado?: string;
+  sim_slot?: number;
   celular_memoria?: string;
   celular_capacidad?: string;
   created_at?: string;

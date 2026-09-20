@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import {
   Linea,
   getColorEstadoLinea,
@@ -112,9 +112,9 @@ export const LineasTable: React.FC<LineasTableProps> = ({
                           </span>
                           {linea.celular_modelo || linea.celular_nombre}
                         </span>
-                        {linea.celular_imei_1 && (
+                        {(linea.celular_imei_asignado || linea.celular_imei_1) && (
                           <span className="text-[10px] font-mono text-gray-500 dark:text-gray-400 mt-0.5">
-                            IMEI: {linea.celular_imei_1}
+                            IMEI{linea.celular_imei_2 && linea.sim_slot ? ` (SIM ${linea.sim_slot})` : ""}: {linea.celular_imei_asignado || linea.celular_imei_1}
                           </span>
                         )}
                       </div>

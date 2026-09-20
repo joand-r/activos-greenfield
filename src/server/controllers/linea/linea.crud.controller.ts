@@ -6,6 +6,13 @@ export const obtenerLineas = async (req: any, res: any) => {
     const { search, telefonia_id, estado, personal_id, plan_id } = req.query;
 
     let query = `
+      WITH lineas_con_slot AS (
+        SELECT 
+          id,
+          ROW_NUMBER() OVER(PARTITION BY activo_id ORDER BY id ASC) as sim_slot
+        FROM linea
+        WHERE activo_id IS NOT NULL AND estado != 'BAJA'
+      )
       SELECT 
         l.*,
         pt.nombre as plan_nombre,
@@ -22,11 +29,18 @@ export const obtenerLineas = async (req: any, res: any) => {
         m.nombre as celular_marca,
         cel.imei_1 as celular_imei_1,
         cel.imei_2 as celular_imei_2,
+        COALESCE(lcs.sim_slot, 1)::int as sim_slot,
+        CASE 
+          WHEN l.activo_id IS NULL THEN NULL
+          WHEN lcs.sim_slot = 2 AND cel.imei_2 IS NOT NULL AND TRIM(cel.imei_2) != '' THEN cel.imei_2
+          ELSE cel.imei_1
+        END as celular_imei_asignado,
         cel.memoria as celular_memoria,
         cel.capacidad_disco as celular_capacidad
       FROM linea l
       JOIN plan_telefonia pt ON l.plan_id = pt.id
       JOIN telefonia t ON pt.telefonia_id = t.id
+      LEFT JOIN lineas_con_slot lcs ON l.id = lcs.id
       LEFT JOIN personal p ON l.personal_id = p.id
       LEFT JOIN activo a ON l.activo_id = a.id
       LEFT JOIN celulares cel ON a.id = cel.activo_id
@@ -92,7 +106,14 @@ export const obtenerLineaPorId = async (req: any, res: any) => {
     const { id } = req.params;
 
     const result = await pool.query(
-      `SELECT 
+      `WITH lineas_con_slot AS (
+        SELECT 
+          id,
+          ROW_NUMBER() OVER(PARTITION BY activo_id ORDER BY id ASC) as sim_slot
+        FROM linea
+        WHERE activo_id IS NOT NULL AND estado != 'BAJA'
+      )
+      SELECT 
         l.*,
         pt.nombre as plan_nombre,
         pt.costo as plan_costo,
@@ -108,11 +129,18 @@ export const obtenerLineaPorId = async (req: any, res: any) => {
         m.nombre as celular_marca,
         cel.imei_1 as celular_imei_1,
         cel.imei_2 as celular_imei_2,
+        COALESCE(lcs.sim_slot, 1)::int as sim_slot,
+        CASE 
+          WHEN l.activo_id IS NULL THEN NULL
+          WHEN lcs.sim_slot = 2 AND cel.imei_2 IS NOT NULL AND TRIM(cel.imei_2) != '' THEN cel.imei_2
+          ELSE cel.imei_1
+        END as celular_imei_asignado,
         cel.memoria as celular_memoria,
         cel.capacidad_disco as celular_capacidad
       FROM linea l
       JOIN plan_telefonia pt ON l.plan_id = pt.id
       JOIN telefonia t ON pt.telefonia_id = t.id
+      LEFT JOIN lineas_con_slot lcs ON l.id = lcs.id
       LEFT JOIN personal p ON l.personal_id = p.id
       LEFT JOIN activo a ON l.activo_id = a.id
       LEFT JOIN celulares cel ON a.id = cel.activo_id
