@@ -97,6 +97,7 @@ const ListaLineasPage = () => {
     activo_id: "",
     personal_id: "",
     plan_id: "",
+    estado: "ACTIVA",
     observaciones: "",
   });
 
@@ -338,6 +339,7 @@ const ListaLineasPage = () => {
       activo_id: l.activo_id ? String(l.activo_id) : "",
       personal_id: l.personal_id ? String(l.personal_id) : "",
       plan_id: l.plan_id ? String(l.plan_id) : "",
+      estado: l.estado || "ACTIVA",
       observaciones: l.observaciones || "",
     });
     setModalEdicion(true);
@@ -357,6 +359,7 @@ const ListaLineasPage = () => {
         activo_id: edicionData.activo_id ? parseInt(edicionData.activo_id) : null,
         personal_id: edicionData.personal_id ? parseInt(edicionData.personal_id) : null,
         plan_id: edicionData.plan_id ? parseInt(edicionData.plan_id) : undefined,
+        estado: (edicionData.estado as any) || undefined,
         observaciones: edicionData.observaciones.trim() || undefined,
       });
 

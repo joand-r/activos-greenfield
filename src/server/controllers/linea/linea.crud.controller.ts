@@ -300,7 +300,7 @@ export const actualizarLinea = async (req: any, res: any) => {
   const client = await pool.connect();
   try {
     const { id } = req.params;
-    const { numero, activo_id, personal_id, plan_id, observaciones } = req.body;
+    const { numero, activo_id, personal_id, plan_id, estado, observaciones } = req.body;
 
     if (!id || isNaN(parseInt(id, 10))) {
       return res.status(400).json({ success: false, error: "ID de línea inválido" });
@@ -325,10 +325,25 @@ export const actualizarLinea = async (req: any, res: any) => {
     const nuevoActivoId = activo_id !== undefined ? (activo_id ? parseInt(activo_id, 10) : null) : (prevResult.rows[0].activo_id ? parseInt(prevResult.rows[0].activo_id, 10) : null);
     const anteriorActivoId = prevResult.rows[0].activo_id ? parseInt(prevResult.rows[0].activo_id, 10) : null;
 
-    const nuevoPersonalId = personal_id !== undefined ? (personal_id ? parseInt(personal_id, 10) : null) : (prevResult.rows[0].personal_id ? parseInt(prevResult.rows[0].personal_id, 10) : null);
+    let nuevoPersonalId = personal_id !== undefined ? (personal_id ? parseInt(personal_id, 10) : null) : (prevResult.rows[0].personal_id ? parseInt(prevResult.rows[0].personal_id, 10) : null);
     const anteriorPersonalId = prevResult.rows[0].personal_id ? parseInt(prevResult.rows[0].personal_id, 10) : null;
 
     const nuevoPlanId = plan_id !== undefined ? (plan_id ? parseInt(plan_id, 10) : prevResult.rows[0].plan_id) : prevResult.rows[0].plan_id;
+
+    // Determinar nuevo estado
+    let nuevoEstado = estado || prevResult.rows[0].estado;
+    if (!estado) {
+      if (nuevoPersonalId === null) {
+        nuevoEstado = "DISPONIBLE";
+      } else if (prevResult.rows[0].estado === "DISPONIBLE") {
+        nuevoEstado = "ACTIVA";
+      }
+    }
+
+    // Si el estado es explícitamente DISPONIBLE y no se indicó personal, asegurar que personal_id sea null
+    if (nuevoEstado === "DISPONIBLE" && (personal_id === "" || personal_id === null || personal_id === undefined)) {
+      nuevoPersonalId = null;
+    }
 
     // Si cambió el equipo celular asignado, validar disponibilidad por IMEI
     if (nuevoActivoId && Number(nuevoActivoId) !== Number(anteriorActivoId)) {
@@ -383,36 +398,46 @@ export const actualizarLinea = async (req: any, res: any) => {
        SET numero = COALESCE($1::varchar, numero),
            activo_id = $2::bigint,
            personal_id = $3::bigint,
-           plan_id = COALESCE($7::bigint, plan_id),
-           estado = CASE 
-             WHEN $3::bigint IS NULL THEN 'DISPONIBLE'
-             WHEN estado = 'DISPONIBLE' THEN 'ACTIVA'
-             ELSE estado 
-           END,
+           plan_id = COALESCE($4::bigint, plan_id),
+           estado = $5::varchar,
            fecha_asignacion = CASE 
-             WHEN $3::bigint IS NULL THEN NULL 
+             WHEN $5::varchar = 'DISPONIBLE' OR $3::bigint IS NULL THEN NULL 
              WHEN $3::bigint IS NOT NULL AND ($3::bigint != COALESCE($6::bigint, 0) OR fecha_asignacion IS NULL) THEN CURRENT_DATE 
              ELSE fecha_asignacion 
            END,
-           observaciones = $4::text,
+           fecha_baja = CASE 
+             WHEN $5::varchar = 'BAJA' AND fecha_baja IS NULL THEN CURRENT_DATE 
+             WHEN $5::varchar != 'BAJA' THEN NULL 
+             ELSE fecha_baja 
+           END,
+           observaciones = $7::text,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $5::bigint RETURNING *`,
+       WHERE id = $8::bigint RETURNING *`,
       [
         numero ? numero.trim() : prevResult.rows[0].numero,
         nuevoActivoId,
         nuevoPersonalId,
+        nuevoPlanId,
+        nuevoEstado,
+        anteriorPersonalId || 0,
         observaciones !== undefined ? observaciones : prevResult.rows[0].observaciones,
         lineaId,
-        anteriorPersonalId || 0,
-        nuevoPlanId,
       ]
     );
 
+    const personalCambio = personal_id !== undefined && Number(nuevoPersonalId || 0) !== Number(anteriorPersonalId || 0);
+    const estadoCambio = nuevoEstado !== prevResult.rows[0].estado;
+
     // Si cambió el personal asignado, registrar evento de auditoría e historial
-    if (personal_id !== undefined && Number(nuevoPersonalId || 0) !== Number(anteriorPersonalId || 0)) {
+    if (personalCambio) {
+      const tipoEventoPersonal = anteriorPersonalId === null ? "ASIGNACION" : "TRANSFERENCIA";
+      const motivoPersonal = nuevoPersonalId 
+        ? (anteriorPersonalId ? "Reasignación de colaborador en edición" : "Asignación de colaborador")
+        : "Desasignación de colaborador (línea pasa a DISPONIBLE en stock)";
+
       await client.query(
         `INSERT INTO historial_linea (linea_id, personal_anterior_id, personal_nuevo_id, plan_anterior_id, plan_nuevo_id, activo_anterior_id, activo_nuevo_id, tipo_evento, motivo, usuario_id)
-         VALUES ($1, $2, $3, $4, $4, $5, $6, 'TRANSFERENCIA', $7, $8)`,
+         VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8, $9)`,
         [
           lineaId,
           anteriorPersonalId || null,
@@ -420,7 +445,34 @@ export const actualizarLinea = async (req: any, res: any) => {
           prevResult.rows[0].plan_id,
           anteriorActivoId || null,
           nuevoActivoId || null,
-          nuevoPersonalId ? "Edición / Corrección de colaborador asignado" : "Desasignación de colaborador (línea disponible en stock)",
+          tipoEventoPersonal,
+          motivoPersonal,
+          req.user?.id || req.userId || null,
+        ]
+      );
+    }
+
+    // Si cambió el estado pero NO cambió el personal (ej: de ACTIVA a DISPONIBLE o viceversa)
+    if (estadoCambio && !personalCambio) {
+      let tipoEv = "EDICION";
+      if (nuevoEstado === "ACTIVA" && prevResult.rows[0].estado === "DISPONIBLE") {
+        tipoEv = "REACTIVACION";
+      } else if (nuevoEstado === "BAJA") {
+        tipoEv = "BAJA";
+      }
+
+      await client.query(
+        `INSERT INTO historial_linea (linea_id, personal_anterior_id, personal_nuevo_id, plan_anterior_id, plan_nuevo_id, activo_anterior_id, activo_nuevo_id, tipo_evento, motivo, usuario_id)
+         VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8, $9)`,
+        [
+          lineaId,
+          prevResult.rows[0].personal_id || null,
+          nuevoPersonalId || null,
+          prevResult.rows[0].plan_id,
+          anteriorActivoId || null,
+          nuevoActivoId || null,
+          tipoEv,
+          `Cambio de estado de ${prevResult.rows[0].estado} a ${nuevoEstado}`,
           req.user?.id || req.userId || null,
         ]
       );
@@ -429,7 +481,7 @@ export const actualizarLinea = async (req: any, res: any) => {
     // Si cambió el activo celular, sincronizar estados y registrar evento en historial
     if (activo_id !== undefined && Number(nuevoActivoId || 0) !== Number(anteriorActivoId || 0)) {
       // 1. Activar nuevo celular si aplica
-      if (nuevoActivoId) {
+      if (nuevoActivoId && nuevoEstado === "ACTIVA") {
         await client.query(
           `UPDATE celulares SET estado_operativo = 'ACTIVO' WHERE activo_id = $1 AND estado_operativo NOT IN ('BAJA', 'DESHABILITADO')`,
           [nuevoActivoId]
@@ -468,6 +520,50 @@ export const actualizarLinea = async (req: any, res: any) => {
           anteriorActivoId || null,
           nuevoActivoId,
           nuevoActivoId ? "Cambio de equipo celular asignado" : "Desvinculación de equipo celular (Solo Chip)",
+          req.user?.id || req.userId || null,
+        ]
+      );
+    } else if (nuevoActivoId) {
+      // Si el equipo celular no cambió pero el estado de la línea cambió a BAJA o a ACTIVA:
+      if (nuevoEstado === "BAJA") {
+        const otrasLineas = await client.query(
+          `SELECT COUNT(*)::int as total FROM linea WHERE activo_id = $1 AND estado != 'BAJA' AND id != $2`,
+          [nuevoActivoId, lineaId]
+        );
+        if (otrasLineas.rows[0].total === 0) {
+          await client.query(
+            `UPDATE celulares SET estado_operativo = 'DISPONIBLE' WHERE activo_id = $1 AND estado_operativo NOT IN ('BAJA', 'DESHABILITADO')`,
+            [nuevoActivoId]
+          );
+          await client.query(
+            `UPDATE activo SET estado = 'DISPONIBLE' WHERE id = $1 AND estado NOT IN ('VENDIDO', 'DONADO', 'DANADO', 'TRANSFERIR')`,
+            [nuevoActivoId]
+          );
+        }
+      } else if (nuevoEstado === "ACTIVA") {
+        await client.query(
+          `UPDATE celulares SET estado_operativo = 'ACTIVO' WHERE activo_id = $1 AND estado_operativo NOT IN ('BAJA', 'DESHABILITADO')`,
+          [nuevoActivoId]
+        );
+        await client.query(
+          `UPDATE activo SET estado = 'ASIGNADO' WHERE id = $1 AND estado NOT IN ('VENDIDO', 'DONADO', 'DANADO', 'TRANSFERIR')`,
+          [nuevoActivoId]
+        );
+      }
+    }
+
+    // Si cambió el plan tarifario
+    if (plan_id !== undefined && Number(nuevoPlanId) !== Number(prevResult.rows[0].plan_id)) {
+      await client.query(
+        `INSERT INTO historial_linea (linea_id, personal_anterior_id, personal_nuevo_id, plan_anterior_id, plan_nuevo_id, activo_anterior_id, activo_nuevo_id, tipo_evento, motivo, usuario_id)
+         VALUES ($1, $2, $2, $3, $4, $5, $5, 'CAMBIO_PLAN', $6, $7)`,
+        [
+          lineaId,
+          nuevoPersonalId || null,
+          prevResult.rows[0].plan_id,
+          nuevoPlanId,
+          nuevoActivoId || null,
+          "Actualización de plan telefónico en edición",
           req.user?.id || req.userId || null,
         ]
       );

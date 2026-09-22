@@ -22,6 +22,7 @@ const getColorEventoHistorial = (evento: string) => {
   switch (evento) {
     case "ASIGNACION":
     case "ACTIVACION":
+    case "REACTIVACION":
       return "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800";
     case "TRANSFERENCIA":
     case "REASIGNACION":
@@ -30,6 +31,8 @@ const getColorEventoHistorial = (evento: string) => {
       return "bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400 border border-purple-300 dark:border-purple-800";
     case "CAMBIO_EQUIPO":
       return "bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border border-indigo-300 dark:border-indigo-800";
+    case "EDICION":
+      return "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800";
     case "BAJA":
     case "DESHABILITACION":
       return "bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-800";

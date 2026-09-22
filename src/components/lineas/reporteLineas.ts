@@ -78,7 +78,6 @@ export const generarReporteLineas = (lineas: Linea[]) => {
         .badge-activa { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
         .badge-disponible { background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; }
         .badge-baja { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-        .badge-suspendida { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
         
         .tag-operadora { display: inline-block; background: #ede9fe; color: #5b21b6; padding: 1px 4px; border-radius: 3px; font-weight: 700; font-size: 7.5px; margin-right: 4px; }
         .tag-codigo { display: inline-block; background: #e0e7ff; color: #3730a3; padding: 1px 4px; border-radius: 3px; font-family: monospace; font-weight: 700; font-size: 8px; margin-right: 3px; }

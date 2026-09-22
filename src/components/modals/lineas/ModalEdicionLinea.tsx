@@ -14,6 +14,7 @@ interface ModalEdicionLineaProps {
     activo_id: string;
     personal_id: string;
     plan_id?: string;
+    estado?: string;
     observaciones: string;
   };
   setEditData: React.Dispatch<
@@ -22,6 +23,7 @@ interface ModalEdicionLineaProps {
       activo_id: string;
       personal_id: string;
       plan_id?: string;
+      estado?: string;
       observaciones: string;
     }>
   >;
@@ -76,20 +78,47 @@ export const ModalEdicionLinea: React.FC<ModalEdicionLineaProps> = ({
         {/* Form */}
         <form onSubmit={onSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 text-xs">
-            {/* Número */}
-            <div>
-              <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
-                Número Telefónico <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={editData.numero}
-                onChange={(e) =>
-                  setEditData((prev) => ({ ...prev, numero: e.target.value }))
-                }
-                required
-                className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary font-mono"
-              />
+            {/* Grid Número y Estado */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Número */}
+              <div>
+                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
+                  Número Telefónico <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editData.numero}
+                  onChange={(e) =>
+                    setEditData((prev) => ({ ...prev, numero: e.target.value }))
+                  }
+                  required
+                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary font-mono"
+                />
+              </div>
+
+              {/* Estado de la Línea */}
+              <div>
+                <label className="block text-xs font-bold text-black dark:text-white mb-1.5">
+                  Estado de la Línea <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={editData.estado || "ACTIVA"}
+                  onChange={(e) => {
+                    const nuevoEstado = e.target.value;
+                    setEditData((prev) => ({
+                      ...prev,
+                      estado: nuevoEstado,
+                      // Si pasa a DISPONIBLE, sugerir limpiar el colaborador para stock libre
+                      ...(nuevoEstado === "DISPONIBLE" && prev.personal_id ? { personal_id: "" } : {}),
+                    }));
+                  }}
+                  className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary font-bold"
+                >
+                  <option value="ACTIVA">🟢 Activa (En Uso)</option>
+                  <option value="DISPONIBLE">🔵 Disponible (En Stock)</option>
+                  <option value="BAJA">🔴 De Baja (Inactiva)</option>
+                </select>
+              </div>
             </div>
 
             {/* Plan de Telefonía */}
@@ -121,9 +150,19 @@ export const ModalEdicionLinea: React.FC<ModalEdicionLineaProps> = ({
               </label>
               <select
                 value={editData.personal_id}
-                onChange={(e) =>
-                  setEditData((prev) => ({ ...prev, personal_id: e.target.value }))
-                }
+                onChange={(e) => {
+                  const nuevoPersonal = e.target.value;
+                  setEditData((prev) => ({
+                    ...prev,
+                    personal_id: nuevoPersonal,
+                    estado:
+                      nuevoPersonal === "" && prev.estado === "ACTIVA"
+                        ? "DISPONIBLE"
+                        : nuevoPersonal !== "" && prev.estado === "DISPONIBLE"
+                        ? "ACTIVA"
+                        : prev.estado,
+                  }));
+                }}
                 className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary"
               >
                 <option value="">-- Sin Asignar (Línea Disponible en Stock) --</option>
@@ -134,7 +173,7 @@ export const ModalEdicionLinea: React.FC<ModalEdicionLineaProps> = ({
                 ))}
               </select>
               <p className="mt-1 text-[10px] text-gray-400">
-                Puedes corregir o desvincular al colaborador directamente si hubo una equivocación al registrar.
+                Al seleccionar &quot;Sin Asignar&quot; la línea pasa a disponible en stock. Al seleccionar un colaborador, se asigna directamente.
               </p>
             </div>
 

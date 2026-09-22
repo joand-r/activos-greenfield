@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import Link from "next/link";
 import { Telefonia } from "@/services/linea.service";
 
@@ -149,7 +149,6 @@ export const LineasFilterBar: React.FC<LineasFilterBarProps> = ({
               <option value="">Todos los estados</option>
               <option value="ACTIVA">Activa</option>
               <option value="DISPONIBLE">Disponible (Stock)</option>
-              <option value="SUSPENDIDA">Suspendida</option>
               <option value="BAJA">De Baja</option>
             </select>
           </div>

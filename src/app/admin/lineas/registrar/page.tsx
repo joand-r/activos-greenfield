@@ -629,7 +629,6 @@ const RegistrarLineaPage = () => {
                   >
                     <option value="ACTIVA">Activa</option>
                     <option value="DISPONIBLE">Disponible (En Stock)</option>
-                    <option value="SUSPENDIDA">Suspendida</option>
                   </select>
                 </div>
               </div>
