@@ -5,7 +5,8 @@ export const generarReporteLineas = (lineas: Linea[]) => {
   if (!ventana) return;
 
   const lineasActivas = lineas.filter((l) => l.estado === "ACTIVA");
-  const costoTotalActivas = lineasActivas.reduce(
+  const lineasConCosto = lineas.filter((l) => l.estado !== "BAJA");
+  const costoTotalFacturado = lineasConCosto.reduce(
     (acc, l) => acc + parseFloat(String(l.plan_costo || 0)),
     0
   );
@@ -121,7 +122,7 @@ export const generarReporteLineas = (lineas: Linea[]) => {
           <div class="stat-label">Con Celular / Solo Chip</div>
         </div>
         <div class="stat-card">
-          <div class="stat-number" style="color: #059669;">Bs. ${costoTotalActivas.toFixed(2)}</div>
+          <div class="stat-number" style="color: #059669;">Bs. ${costoTotalFacturado.toFixed(2)}</div>
           <div class="stat-label">Costo Mensual Total</div>
         </div>
       </div>

@@ -52,7 +52,7 @@ export const obtenerEstadisticas = async (req: any, res: any) => {
         COUNT(CASE WHEN l.estado = 'ACTIVA' THEN 1 END)::int as lineas_activas,
         COUNT(CASE WHEN l.estado = 'BAJA' THEN 1 END)::int as lineas_bajas,
         COUNT(CASE WHEN l.estado = 'DISPONIBLE' THEN 1 END)::int as lineas_disponibles,
-        COALESCE(SUM(CASE WHEN l.estado = 'ACTIVA' THEN pt.costo ELSE 0 END), 0)::float as costo_mensual_total,
+        COALESCE(SUM(CASE WHEN l.estado != 'BAJA' THEN pt.costo ELSE 0 END), 0)::float as costo_mensual_total,
         COUNT(DISTINCT CASE WHEN l.estado = 'ACTIVA' AND l.personal_id IS NOT NULL THEN l.personal_id END)::int as total_personal_con_lineas
       FROM linea l
       LEFT JOIN plan_telefonia pt ON l.plan_id = pt.id
