@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import {
   TipoActivo,
   ClasificacionActivo,
@@ -53,6 +53,9 @@ export const TipoClasificacionSection: React.FC<TipoClasificacionSectionProps> =
             <option value="VEHICULO">{getNombreTipoActivo("VEHICULO")}</option>
             <option value="MAQUINARIA">{getNombreTipoActivo("MAQUINARIA")}</option>
             <option value="TERRENO">{getNombreTipoActivo("TERRENO")}</option>
+            <option value="CONTENEDOR">{getNombreTipoActivo("CONTENEDOR")}</option>
+            <option value="EQUIPAMIENTO_ESTACION_SERVICIO">{getNombreTipoActivo("EQUIPAMIENTO_ESTACION_SERVICIO")}</option>
+            <option value="EQUIPAMIENTO_VEHICULO">{getNombreTipoActivo("EQUIPAMIENTO_VEHICULO")}</option>
           </select>
         </div>
 

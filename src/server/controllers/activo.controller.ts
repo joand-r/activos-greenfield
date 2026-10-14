@@ -132,6 +132,30 @@ export const obtenerActivoPorId = async (req, res) => {
         );
         datosEspecificos = terrResult.rows[0] || null;
         break;
+
+      case 'CONTENEDOR':
+        const contResult = await pool.query(
+          'SELECT * FROM contenedores WHERE activo_id = $1',
+          [id]
+        );
+        datosEspecificos = contResult.rows[0] || null;
+        break;
+
+      case 'EQUIPAMIENTO_ESTACION_SERVICIO':
+        const estResult = await pool.query(
+          'SELECT * FROM equipamiento_estacion_servicio WHERE activo_id = $1',
+          [id]
+        );
+        datosEspecificos = estResult.rows[0] || null;
+        break;
+
+      case 'EQUIPAMIENTO_VEHICULO':
+        const eqVehResult = await pool.query(
+          'SELECT * FROM equipamiento_vehiculos WHERE activo_id = $1',
+          [id]
+        );
+        datosEspecificos = eqVehResult.rows[0] || null;
+        break;
     }
     
     res.json({
@@ -266,6 +290,44 @@ export const crearActivo = async (req, res) => {
               datos_especificos.nro_registro || null,
               datos_especificos.area || null,
               datos_especificos.ubicacion || null
+            ]
+          );
+          break;
+
+        case 'CONTENEDOR':
+          await client.query(
+            `INSERT INTO contenedores 
+             (activo_id, tipo_contenedor, dimensiones, codigo_identificador)
+             VALUES ($1, $2, $3, $4)`,
+            [
+              activoId,
+              datos_especificos.tipo_contenedor || null,
+              datos_especificos.dimensiones || null,
+              datos_especificos.codigo_identificador || null
+            ]
+          );
+          break;
+
+        case 'EQUIPAMIENTO_ESTACION_SERVICIO':
+          await client.query(
+            `INSERT INTO equipamiento_estacion_servicio 
+             (activo_id, tipo_equipamiento)
+             VALUES ($1, $2)`,
+            [
+              activoId,
+              datos_especificos.tipo_equipamiento || null
+            ]
+          );
+          break;
+
+        case 'EQUIPAMIENTO_VEHICULO':
+          await client.query(
+            `INSERT INTO equipamiento_vehiculos 
+             (activo_id, tipo_equipamiento)
+             VALUES ($1, $2)`,
+            [
+              activoId,
+              datos_especificos.tipo_equipamiento || null
             ]
           );
           break;
@@ -412,6 +474,49 @@ export const actualizarActivo = async (req, res) => {
               datos_especificos.area,
               datos_especificos.ubicacion,
               id
+            ]
+          );
+          break;
+
+        case 'CONTENEDOR':
+          await client.query(
+            `INSERT INTO contenedores (activo_id, tipo_contenedor, dimensiones, codigo_identificador)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (activo_id) DO UPDATE SET
+               tipo_contenedor = EXCLUDED.tipo_contenedor,
+               dimensiones = EXCLUDED.dimensiones,
+               codigo_identificador = EXCLUDED.codigo_identificador`,
+            [
+              id,
+              datos_especificos.tipo_contenedor || null,
+              datos_especificos.dimensiones || null,
+              datos_especificos.codigo_identificador || null
+            ]
+          );
+          break;
+
+        case 'EQUIPAMIENTO_ESTACION_SERVICIO':
+          await client.query(
+            `INSERT INTO equipamiento_estacion_servicio (activo_id, tipo_equipamiento)
+             VALUES ($1, $2)
+             ON CONFLICT (activo_id) DO UPDATE SET
+               tipo_equipamiento = EXCLUDED.tipo_equipamiento`,
+            [
+              id,
+              datos_especificos.tipo_equipamiento || null
+            ]
+          );
+          break;
+
+        case 'EQUIPAMIENTO_VEHICULO':
+          await client.query(
+            `INSERT INTO equipamiento_vehiculos (activo_id, tipo_equipamiento)
+             VALUES ($1, $2)
+             ON CONFLICT (activo_id) DO UPDATE SET
+               tipo_equipamiento = EXCLUDED.tipo_equipamiento`,
+            [
+              id,
+              datos_especificos.tipo_equipamiento || null
             ]
           );
           break;

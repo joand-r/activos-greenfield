@@ -59,6 +59,9 @@ const ListaActivosPage = () => {
   const [editCamposCelular, setEditCamposCelular] = useState({ modelo: '', procesador: '', memoria: '', capacidad_disco: '', imei_1: '', imei_2: '' });
   const [editCamposMotorizado, setEditCamposMotorizado] = useState({ tipo_vehiculo: '', motor: '', chasis: '', color: '', anho_modelo: '', placa: '' });
   const [editCamposTerreno, setEditCamposTerreno] = useState({ folio: '', nro_registro: '', area: '', ubicacion: '' });
+  const [editCamposContenedor, setEditCamposContenedor] = useState({ tipo_contenedor: '', dimensiones: '', codigo_identificador: '' });
+  const [editCamposEquipamientoEstacion, setEditCamposEquipamientoEstacion] = useState({ tipo_equipamiento: '' });
+  const [editCamposEquipamientoVehiculo, setEditCamposEquipamientoVehiculo] = useState({ tipo_equipamiento: '' });
 
   useEffect(() => {
     document.title = "Lista de Activos | Activos Greenfield";
@@ -160,6 +163,20 @@ const ListaActivosPage = () => {
           setEditCamposMotorizado({ tipo_vehiculo: d.tipo_vehiculo || '', motor: d.motor || '', chasis: d.chasis || '', color: d.color || '', anho_modelo: d.anho_modelo?.toString() || '', placa: d.placa || '' });
         } else if (activo.tipo_activo === 'TERRENO') {
           setEditCamposTerreno({ folio: d.folio || '', nro_registro: d.nro_registro || '', area: d.area?.toString() || '', ubicacion: d.ubicacion || '' });
+        } else if (activo.tipo_activo === 'CONTENEDOR') {
+          setEditCamposContenedor({
+            tipo_contenedor: d.tipo_contenedor || '',
+            dimensiones: d.dimensiones || '',
+            codigo_identificador: d.codigo_identificador || '',
+          });
+        } else if (activo.tipo_activo === 'EQUIPAMIENTO_ESTACION_SERVICIO') {
+          setEditCamposEquipamientoEstacion({
+            tipo_equipamiento: d.tipo_equipamiento || '',
+          });
+        } else if (activo.tipo_activo === 'EQUIPAMIENTO_VEHICULO') {
+          setEditCamposEquipamientoVehiculo({
+            tipo_equipamiento: d.tipo_equipamiento || '',
+          });
         }
       }
       if (editLugares.length === 0) {
@@ -219,6 +236,20 @@ const ListaActivosPage = () => {
         datos_especificos = { tipo_vehiculo: editCamposMotorizado.tipo_vehiculo || null, motor: editCamposMotorizado.motor || null, chasis: editCamposMotorizado.chasis || null, color: editCamposMotorizado.color || null, anho_modelo: editCamposMotorizado.anho_modelo ? parseInt(editCamposMotorizado.anho_modelo) : null, placa: editCamposMotorizado.placa || null };
       } else if (tipo === 'TERRENO') {
         datos_especificos = { folio: editCamposTerreno.folio || null, nro_registro: editCamposTerreno.nro_registro || null, area: editCamposTerreno.area ? parseFloat(editCamposTerreno.area) : null, ubicacion: editCamposTerreno.ubicacion || null };
+      } else if (tipo === 'CONTENEDOR') {
+        datos_especificos = {
+          tipo_contenedor: editCamposContenedor.tipo_contenedor || null,
+          dimensiones: editCamposContenedor.dimensiones || null,
+          codigo_identificador: editCamposContenedor.codigo_identificador || null,
+        };
+      } else if (tipo === 'EQUIPAMIENTO_ESTACION_SERVICIO') {
+        datos_especificos = {
+          tipo_equipamiento: editCamposEquipamientoEstacion.tipo_equipamiento || null,
+        };
+      } else if (tipo === 'EQUIPAMIENTO_VEHICULO') {
+        datos_especificos = {
+          tipo_equipamiento: editCamposEquipamientoVehiculo.tipo_equipamiento || null,
+        };
       }
       await activoService.update(activoSeleccionado.id, {
         nombre: editFormData.nombre,
@@ -260,6 +291,9 @@ const ListaActivosPage = () => {
     'VEHICULO',
     'MAQUINARIA',
     'TERRENO',
+    'CONTENEDOR',
+    'EQUIPAMIENTO_ESTACION_SERVICIO',
+    'EQUIPAMIENTO_VEHICULO',
   ];
 
   const activosFiltrados = (activos || []).filter((activo) => {
@@ -584,6 +618,12 @@ const ListaActivosPage = () => {
           setCamposMotorizado={setEditCamposMotorizado}
           camposTerreno={editCamposTerreno}
           setCamposTerreno={setEditCamposTerreno}
+          camposContenedor={editCamposContenedor}
+          setCamposContenedor={setEditCamposContenedor}
+          camposEquipamientoEstacion={editCamposEquipamientoEstacion}
+          setCamposEquipamientoEstacion={setEditCamposEquipamientoEstacion}
+          camposEquipamientoVehiculo={editCamposEquipamientoVehiculo}
+          setCamposEquipamientoVehiculo={setEditCamposEquipamientoVehiculo}
           onSubmit={handleEditSubmit}
           onClose={() => setConfirmCancelarEdit(true)}
         />

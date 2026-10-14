@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { TipoActivo, getNombreTipoActivo } from "@/services/activo.service";
 
 interface CamposEspecificosSectionProps {
@@ -67,6 +67,34 @@ interface CamposEspecificosSectionProps {
       ubicacion: string;
     }>
   >;
+  camposContenedor: {
+    tipo_contenedor: string;
+    dimensiones: string;
+    codigo_identificador: string;
+  };
+  setCamposContenedor: React.Dispatch<
+    React.SetStateAction<{
+      tipo_contenedor: string;
+      dimensiones: string;
+      codigo_identificador: string;
+    }>
+  >;
+  camposEquipamientoEstacion: {
+    tipo_equipamiento: string;
+  };
+  setCamposEquipamientoEstacion: React.Dispatch<
+    React.SetStateAction<{
+      tipo_equipamiento: string;
+    }>
+  >;
+  camposEquipamientoVehiculo: {
+    tipo_equipamiento: string;
+  };
+  setCamposEquipamientoVehiculo: React.Dispatch<
+    React.SetStateAction<{
+      tipo_equipamiento: string;
+    }>
+  >;
 }
 
 export const CamposEspecificosSection: React.FC<CamposEspecificosSectionProps> = ({
@@ -79,6 +107,12 @@ export const CamposEspecificosSection: React.FC<CamposEspecificosSectionProps> =
   setCamposMotorizado,
   camposTerreno,
   setCamposTerreno,
+  camposContenedor,
+  setCamposContenedor,
+  camposEquipamientoEstacion,
+  setCamposEquipamientoEstacion,
+  camposEquipamientoVehiculo,
+  setCamposEquipamientoVehiculo,
 }) => {
   return (
     <div className="mb-8 p-6 bg-green-50 dark:bg-green-900/20 rounded-2xl border border-emerald-500/20 shadow-sm">
@@ -412,6 +446,94 @@ export const CamposEspecificosSection: React.FC<CamposEspecificosSectionProps> =
                 setCamposTerreno({ ...camposTerreno, ubicacion: e.target.value })
               }
               placeholder="Descripción detallada de la ubicación del terreno..."
+              className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Campos para CONTENEDOR */}
+      {tipoActivo === "CONTENEDOR" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+              Tipo de Contenedor
+            </label>
+            <input
+              type="text"
+              value={camposContenedor.tipo_contenedor}
+              onChange={(e) =>
+                setCamposContenedor({ ...camposContenedor, tipo_contenedor: e.target.value })
+              }
+              placeholder="Ej: Marítimo 20ft, 40ft High Cube, Oficina, Bodega"
+              className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+              Código / Matrícula del Contenedor
+            </label>
+            <input
+              type="text"
+              value={camposContenedor.codigo_identificador}
+              onChange={(e) =>
+                setCamposContenedor({ ...camposContenedor, codigo_identificador: e.target.value })
+              }
+              placeholder="Ej: MSCU-123456-7"
+              className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+              Dimensiones (Largo x Ancho x Alto)
+            </label>
+            <input
+              type="text"
+              value={camposContenedor.dimensiones}
+              onChange={(e) =>
+                setCamposContenedor({ ...camposContenedor, dimensiones: e.target.value })
+              }
+              placeholder="Ej: 6.05m x 2.44m x 2.59m"
+              className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Campos para EQUIPAMIENTO_ESTACION_SERVICIO */}
+      {tipoActivo === "EQUIPAMIENTO_ESTACION_SERVICIO" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="md:col-span-2">
+            <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+              Tipo de Equipamiento
+            </label>
+            <input
+              type="text"
+              value={camposEquipamientoEstacion.tipo_equipamiento}
+              onChange={(e) =>
+                setCamposEquipamientoEstacion({ ...camposEquipamientoEstacion, tipo_equipamiento: e.target.value })
+              }
+              placeholder="Ej: Surtidor / Dispensador, Bomba sumergible, Consola de telemedición"
+              className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Campos para EQUIPAMIENTO_VEHICULO */}
+      {tipoActivo === "EQUIPAMIENTO_VEHICULO" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="md:col-span-2">
+            <label className="mb-1.5 block text-xs font-bold text-dark dark:text-white">
+              Tipo de Equipamiento
+            </label>
+            <input
+              type="text"
+              value={camposEquipamientoVehiculo.tipo_equipamiento}
+              onChange={(e) =>
+                setCamposEquipamientoVehiculo({ ...camposEquipamientoVehiculo, tipo_equipamiento: e.target.value })
+              }
+              placeholder="Ej: GPS Tracker, Radio Base VHF, Tacógrafo, Dashcam"
               className="w-full text-xs rounded-xl border border-black/5 dark:border-white/5 bg-gray-50/50 dark:bg-gray-dark/50 py-2.5 px-4 text-black dark:text-white outline-none focus:border-primary focus:shadow-[0_0_15px_rgba(74,108,247,0.15)] transition-all"
             />
           </div>

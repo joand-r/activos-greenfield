@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Breadcrumb from "@/components/ui/Common/Breadcrumb";
 import { useState, useEffect } from "react";
@@ -95,6 +95,20 @@ const RegistrarActivoPage = () => {
     nro_registro: "",
     area: "",
     ubicacion: "",
+  });
+
+  const [camposContenedor, setCamposContenedor] = useState({
+    tipo_contenedor: "",
+    dimensiones: "",
+    codigo_identificador: "",
+  });
+
+  const [camposEquipamientoEstacion, setCamposEquipamientoEstacion] = useState({
+    tipo_equipamiento: "",
+  });
+
+  const [camposEquipamientoVehiculo, setCamposEquipamientoVehiculo] = useState({
+    tipo_equipamiento: "",
   });
 
   const cargarDatosSelects = async () => {
@@ -259,6 +273,20 @@ const RegistrarActivoPage = () => {
           area: camposTerreno.area ? parseFloat(camposTerreno.area) : null,
           ubicacion: camposTerreno.ubicacion || null,
         };
+      } else if (tipoActivo === "CONTENEDOR") {
+        datos_especificos = {
+          tipo_contenedor: camposContenedor.tipo_contenedor || null,
+          dimensiones: camposContenedor.dimensiones || null,
+          codigo_identificador: camposContenedor.codigo_identificador || null,
+        };
+      } else if (tipoActivo === "EQUIPAMIENTO_ESTACION_SERVICIO") {
+        datos_especificos = {
+          tipo_equipamiento: camposEquipamientoEstacion.tipo_equipamiento || null,
+        };
+      } else if (tipoActivo === "EQUIPAMIENTO_VEHICULO") {
+        datos_especificos = {
+          tipo_equipamiento: camposEquipamientoVehiculo.tipo_equipamiento || null,
+        };
       }
 
       const dataToSend = {
@@ -358,6 +386,12 @@ const RegistrarActivoPage = () => {
                           setCamposMotorizado={setCamposMotorizado}
                           camposTerreno={camposTerreno}
                           setCamposTerreno={setCamposTerreno}
+                          camposContenedor={camposContenedor}
+                          setCamposContenedor={setCamposContenedor}
+                          camposEquipamientoEstacion={camposEquipamientoEstacion}
+                          setCamposEquipamientoEstacion={setCamposEquipamientoEstacion}
+                          camposEquipamientoVehiculo={camposEquipamientoVehiculo}
+                          setCamposEquipamientoVehiculo={setCamposEquipamientoVehiculo}
                         />
                       )}
 

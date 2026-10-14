@@ -12,7 +12,10 @@ export type TipoActivo =
   | 'CELULAR'
   | 'VEHICULO'
   | 'MAQUINARIA'
-  | 'TERRENO';
+  | 'TERRENO'
+  | 'CONTENEDOR'
+  | 'EQUIPAMIENTO_ESTACION_SERVICIO'
+  | 'EQUIPAMIENTO_VEHICULO';
 
 export type EstadoActivo = 
   | 'NUEVO'
@@ -57,7 +60,7 @@ export interface Activo {
   marca_nombre?: string;
   proveedor_nombre?: string;
   // Datos específicos por tipo
-  datos_especificos?: EquipoTecnologico | Celular | Motorizado | Terreno | null;
+  datos_especificos?: EquipoTecnologico | Celular | Motorizado | Terreno | Contenedor | EquipamientoEstacionServicio | EquipamientoVehiculo | null;
 }
 
 export interface EquipoTecnologico {
@@ -100,6 +103,23 @@ export interface Terreno {
   ubicacion?: string | null;
 }
 
+export interface Contenedor {
+  activo_id: number;
+  tipo_contenedor?: string | null;
+  dimensiones?: string | null;
+  codigo_identificador?: string | null;
+}
+
+export interface EquipamientoEstacionServicio {
+  activo_id: number;
+  tipo_equipamiento?: string | null;
+}
+
+export interface EquipamientoVehiculo {
+  activo_id: number;
+  tipo_equipamiento?: string | null;
+}
+
 export interface CrearActivoDTO {
   nombre: string;
   tipo_activo: TipoActivo;
@@ -116,7 +136,7 @@ export interface CrearActivoDTO {
   lugar_id: number;
   marca_id?: number;
   proveedor_id?: number;
-  datos_especificos?: Partial<EquipoTecnologico | Celular | Motorizado | Terreno>;
+  datos_especificos?: Partial<EquipoTecnologico | Celular | Motorizado | Terreno | Contenedor | EquipamientoEstacionServicio | EquipamientoVehiculo>;
 }
 
 // Helper para obtener nombre legible de la clasificación
@@ -148,6 +168,9 @@ export const getNombreTipoActivo = (tipo: TipoActivo): string => {
     VEHICULO: 'Vehículo',
     MAQUINARIA: 'Maquinaria',
     TERRENO: 'Terreno',
+    CONTENEDOR: 'Contenedores',
+    EQUIPAMIENTO_ESTACION_SERVICIO: 'Equipamiento para Estación de Servicio',
+    EQUIPAMIENTO_VEHICULO: 'Equipamiento para Vehículos',
   };
   return nombres[tipo] || tipo;
 };

@@ -100,6 +100,42 @@ export const ensureDatabaseSchema = async (): Promise<void> => {
 
           ALTER TABLE historial_linea ADD COLUMN IF NOT EXISTS activo_anterior_id BIGINT REFERENCES activo(id) ON DELETE SET NULL;
           ALTER TABLE historial_linea ADD COLUMN IF NOT EXISTS activo_nuevo_id BIGINT REFERENCES activo(id) ON DELETE SET NULL;
+
+          -- 3. Asegurar tablas para nuevos tipos de activos (con atributos ajustados)
+          CREATE TABLE IF NOT EXISTS contenedores (
+            activo_id BIGINT PRIMARY KEY REFERENCES activo(id) ON DELETE CASCADE,
+            tipo_contenedor VARCHAR(100),
+            dimensiones VARCHAR(100),
+            codigo_identificador VARCHAR(100)
+          );
+          CREATE INDEX IF NOT EXISTS idx_contenedores_codigo_identificador ON contenedores(codigo_identificador);
+          ALTER TABLE contenedores DROP COLUMN IF EXISTS capacidad;
+          ALTER TABLE contenedores DROP COLUMN IF EXISTS material;
+          ALTER TABLE contenedores DROP COLUMN IF EXISTS estado_estructura;
+
+          CREATE TABLE IF NOT EXISTS equipamiento_estacion_servicio (
+            activo_id BIGINT PRIMARY KEY REFERENCES activo(id) ON DELETE CASCADE,
+            tipo_equipamiento VARCHAR(100)
+          );
+          CREATE INDEX IF NOT EXISTS idx_equip_estacion_tipo ON equipamiento_estacion_servicio(tipo_equipamiento);
+          ALTER TABLE equipamiento_estacion_servicio DROP COLUMN IF EXISTS modelo;
+          ALTER TABLE equipamiento_estacion_servicio DROP COLUMN IF EXISTS nro_mangueras;
+          ALTER TABLE equipamiento_estacion_servicio DROP COLUMN IF EXISTS capacidad_flujo;
+          ALTER TABLE equipamiento_estacion_servicio DROP COLUMN IF EXISTS tipo_combustible;
+          ALTER TABLE equipamiento_estacion_servicio DROP COLUMN IF EXISTS voltaje_fase;
+          ALTER TABLE equipamiento_estacion_servicio DROP COLUMN IF EXISTS nro_calibracion;
+
+          CREATE TABLE IF NOT EXISTS equipamiento_vehiculos (
+            activo_id BIGINT PRIMARY KEY REFERENCES activo(id) ON DELETE CASCADE,
+            tipo_equipamiento VARCHAR(100)
+          );
+          DROP INDEX IF EXISTS idx_equip_vehiculos_imei;
+          DROP INDEX IF EXISTS idx_equip_vehiculos_serie;
+          ALTER TABLE equipamiento_vehiculos DROP COLUMN IF EXISTS modelo;
+          ALTER TABLE equipamiento_vehiculos DROP COLUMN IF EXISTS nro_serie_dispositivo;
+          ALTER TABLE equipamiento_vehiculos DROP COLUMN IF EXISTS imei;
+          ALTER TABLE equipamiento_vehiculos DROP COLUMN IF EXISTS voltaje_operacion;
+          ALTER TABLE equipamiento_vehiculos DROP COLUMN IF EXISTS vehiculo_asignado;
         `);
         schemaEnsured = true;
       } finally {

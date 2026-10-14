@@ -84,6 +84,34 @@ interface ModalEditarActivoProps {
   setCamposTerreno: React.Dispatch<
     React.SetStateAction<{ folio: string; nro_registro: string; area: string; ubicacion: string }>
   >;
+  camposContenedor: {
+    tipo_contenedor: string;
+    dimensiones: string;
+    codigo_identificador: string;
+  };
+  setCamposContenedor: React.Dispatch<
+    React.SetStateAction<{
+      tipo_contenedor: string;
+      dimensiones: string;
+      codigo_identificador: string;
+    }>
+  >;
+  camposEquipamientoEstacion: {
+    tipo_equipamiento: string;
+  };
+  setCamposEquipamientoEstacion: React.Dispatch<
+    React.SetStateAction<{
+      tipo_equipamiento: string;
+    }>
+  >;
+  camposEquipamientoVehiculo: {
+    tipo_equipamiento: string;
+  };
+  setCamposEquipamientoVehiculo: React.Dispatch<
+    React.SetStateAction<{
+      tipo_equipamiento: string;
+    }>
+  >;
   onSubmit: (e: React.FormEvent) => Promise<void>;
   onClose: () => void;
 }
@@ -109,6 +137,12 @@ export const ModalEditarActivo: React.FC<ModalEditarActivoProps> = ({
   setCamposMotorizado,
   camposTerreno,
   setCamposTerreno,
+  camposContenedor,
+  setCamposContenedor,
+  camposEquipamientoEstacion,
+  setCamposEquipamientoEstacion,
+  camposEquipamientoVehiculo,
+  setCamposEquipamientoVehiculo,
   onSubmit,
   onClose,
 }) => {
@@ -468,6 +502,55 @@ export const ModalEditarActivo: React.FC<ModalEditarActivoProps> = ({
                           value={camposTerreno.ubicacion}
                           onChange={(e) => setCamposTerreno((p) => ({ ...p, ubicacion: e.target.value }))}
                           className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-white dark:bg-gray-dark p-3 text-black dark:text-white outline-none focus:border-primary resize-none"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {activo.tipo_activo === "CONTENEDOR" && (
+                    <div className="grid grid-cols-2 gap-3">
+                      {(["tipo_contenedor", "codigo_identificador", "dimensiones"] as const).map((k) => (
+                        <div key={k}>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400 capitalize">
+                            {k.replace(/_/g, " ")}
+                          </label>
+                          <input
+                            type="text"
+                            value={camposContenedor[k]}
+                            onChange={(e) => setCamposContenedor((p) => ({ ...p, [k]: e.target.value }))}
+                            className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-white dark:bg-gray-dark py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {activo.tipo_activo === "EQUIPAMIENTO_ESTACION_SERVICIO" && (
+                    <div className="grid grid-cols-1 gap-3">
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400 capitalize">
+                          Tipo de Equipamiento
+                        </label>
+                        <input
+                          type="text"
+                          value={camposEquipamientoEstacion.tipo_equipamiento}
+                          onChange={(e) => setCamposEquipamientoEstacion({ tipo_equipamiento: e.target.value })}
+                          placeholder="Ej: Surtidor / Dispensador, Bomba sumergible, Consola telemedición"
+                          className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-white dark:bg-gray-dark py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {activo.tipo_activo === "EQUIPAMIENTO_VEHICULO" && (
+                    <div className="grid grid-cols-1 gap-3">
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400 capitalize">
+                          Tipo de Equipamiento
+                        </label>
+                        <input
+                          type="text"
+                          value={camposEquipamientoVehiculo.tipo_equipamiento}
+                          onChange={(e) => setCamposEquipamientoVehiculo({ tipo_equipamiento: e.target.value })}
+                          placeholder="Ej: GPS Tracker, Radio Base VHF, Tacógrafo, Dashcam"
+                          className="w-full text-xs rounded-xl border border-stroke dark:border-gray-800 bg-white dark:bg-gray-dark py-2 px-3 text-black dark:text-white outline-none focus:border-primary"
                         />
                       </div>
                     </div>

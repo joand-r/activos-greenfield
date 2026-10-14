@@ -35,6 +35,10 @@ const etiquetasDatosEspecificos: Record<string, string> = {
   nro_registro: "Nro. Registro",
   area: "Área (m²)",
   ubicacion: "Ubicación Geográfica",
+  tipo_contenedor: "Tipo de Contenedor",
+  dimensiones: "Dimensiones",
+  codigo_identificador: "Código / Matrícula Contenedor",
+  tipo_equipamiento: "Tipo de Equipamiento",
 };
 
 const getColorEstado = (estado: string) => {

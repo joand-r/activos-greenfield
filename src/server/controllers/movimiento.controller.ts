@@ -144,12 +144,18 @@ export const crearMovimiento = async (req, res) => {
           et.modelo, et.procesador, et.memoria, et.capacidad_disco,
           cel.modelo as cel_modelo, cel.procesador as cel_procesador, cel.memoria as cel_memoria, cel.capacidad_disco as cel_capacidad_disco, cel.imei_1, cel.imei_2,
           mo.tipo_vehiculo, mo.motor, mo.chasis, mo.color, mo.anho_modelo,
-          te.folio, te.nro_registro, te.area, te.ubicacion
+          te.folio, te.nro_registro, te.area, te.ubicacion,
+          cont.tipo_contenedor, cont.dimensiones as cont_dimensiones, cont.codigo_identificador,
+          ees.tipo_equipamiento as ees_tipo,
+          eve.tipo_equipamiento as eve_tipo
          FROM activo a
          LEFT JOIN equipos_tecnologicos et ON a.id = et.activo_id
          LEFT JOIN celulares cel ON a.id = cel.activo_id
          LEFT JOIN motorizados mo ON a.id = mo.activo_id
          LEFT JOIN terreno te ON a.id = te.activo_id
+         LEFT JOIN contenedores cont ON a.id = cont.activo_id
+         LEFT JOIN equipamiento_estacion_servicio ees ON a.id = ees.activo_id
+         LEFT JOIN equipamiento_vehiculos eve ON a.id = eve.activo_id
          WHERE a.id = $1`,
         [activo_id]
       );
@@ -217,6 +223,24 @@ export const crearMovimiento = async (req, res) => {
           `INSERT INTO terreno (activo_id, folio, nro_registro, area, ubicacion)
            VALUES ($1,$2,$3,$4,$5)`,
           [nuevoActivoId, orig.folio, orig.nro_registro, orig.area, orig.ubicacion]
+        );
+      } else if (orig.tipo_activo === 'CONTENEDOR' && (orig.tipo_contenedor || orig.cont_dimensiones || orig.codigo_identificador)) {
+        await client.query(
+          `INSERT INTO contenedores (activo_id, tipo_contenedor, dimensiones, codigo_identificador)
+           VALUES ($1,$2,$3,$4)`,
+          [nuevoActivoId, orig.tipo_contenedor, orig.cont_dimensiones, orig.codigo_identificador]
+        );
+      } else if (orig.tipo_activo === 'EQUIPAMIENTO_ESTACION_SERVICIO' && orig.ees_tipo) {
+        await client.query(
+          `INSERT INTO equipamiento_estacion_servicio (activo_id, tipo_equipamiento)
+           VALUES ($1,$2)`,
+          [nuevoActivoId, orig.ees_tipo]
+        );
+      } else if (orig.tipo_activo === 'EQUIPAMIENTO_VEHICULO' && orig.eve_tipo) {
+        await client.query(
+          `INSERT INTO equipamiento_vehiculos (activo_id, tipo_equipamiento)
+           VALUES ($1,$2)`,
+          [nuevoActivoId, orig.eve_tipo]
         );
       }
 
